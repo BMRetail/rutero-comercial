@@ -1,0 +1,1832 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Rutero Comercial · BigMat</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bm-blue:#1A3A6B;
+  --bm-blue-mid:#2B5BA8;
+  --bm-blue-light:#E8EEF8;
+  --bm-blue-pale:#F0F4FB;
+  --bm-red:#C0272D;
+  --bm-red-light:#FAEAEA;
+  --bm-green:#1a7a3a;
+  --bm-green-dark:#15632f;
+  --bm-amber:#a86a00;
+  --bm-amber-light:#FDF1DC;
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;background:#F5F8FC;min-height:100vh;padding:0;margin:0;font-size:15px}
+.page{max-width:480px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column}
+
+.form-header{background:var(--bm-blue);padding:12px 16px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.2)}
+.header-right{flex:1}
+.header-title{color:#fff;font-size:13px;font-weight:600;letter-spacing:.03em;text-transform:uppercase;line-height:1.2}
+.header-sub{color:var(--bm-blue-light);font-size:10px;margin-top:2px}
+.header-back{background:none;border:none;color:#fff;font-size:20px;cursor:pointer;padding:4px 8px 4px 0}
+.header-home{background:none;border:none;color:var(--bm-blue-light);font-size:18px;cursor:pointer;padding:4px 6px;opacity:.85;line-height:1}
+
+.form-body{flex:1;background:#fff}
+.section{padding:14px 16px;border-bottom:1px solid var(--bm-blue-light)}
+.section-title{font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--bm-blue);margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.section-title::before{content:'';display:inline-block;width:3px;height:13px;background:var(--bm-red);border-radius:2px;flex-shrink:0}
+
+.field{display:flex;flex-direction:column;gap:4px;margin-bottom:10px;position:relative}
+.field:last-child{margin-bottom:0}
+label{font-size:12px;color:var(--bm-blue);font-weight:600;letter-spacing:.01em}
+label.required::after{content:" *";color:var(--bm-red);font-weight:700}
+input,select,textarea{font-family:inherit;font-size:15px;color:#1a1a2e;background:#fff;border:1.5px solid var(--bm-blue-mid);border-radius:8px;padding:11px 12px;width:100%;outline:none;-webkit-appearance:none;appearance:none;transition:border-color .15s,box-shadow .15s}
+input:focus,select:focus,textarea:focus{border-color:var(--bm-blue);box-shadow:0 0 0 3px rgba(43,91,168,.12)}
+input.error,select.error{border-color:var(--bm-red);background:var(--bm-red-light)}
+textarea{resize:vertical;min-height:64px;line-height:1.5}
+select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='9' viewBox='0 0 14 9'%3E%3Cpath d='M1 1l6 6 6-6' stroke='%232B5BA8' stroke-width='1.8' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:36px}
+.row-2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.hint{font-size:11px;color:#8a8fa3;margin-top:2px}
+.todo-tag{display:inline-block;font-size:10px;font-weight:700;color:var(--bm-amber);background:var(--bm-amber-light);border-radius:4px;padding:1px 6px;margin-left:6px;vertical-align:middle}
+
+.autocomplete-list{position:absolute;top:100%;left:0;right:0;background:#fff;border:1.5px solid var(--bm-blue-mid);border-top:none;border-radius:0 0 8px 8px;max-height:180px;overflow-y:auto;z-index:50;display:none;box-shadow:0 4px 10px rgba(0,0,0,.1)}
+.autocomplete-list.open{display:block}
+.autocomplete-item{padding:10px 12px;font-size:14px;cursor:pointer;border-bottom:1px solid var(--bm-blue-light)}
+.autocomplete-item:last-child{border-bottom:none}
+.autocomplete-item:hover,.autocomplete-item.active{background:var(--bm-blue-pale)}
+.autocomplete-item small{display:block;color:#667;font-size:11px;margin-top:2px}
+
+.menu-btn{width:100%;padding:16px;border:1.5px solid var(--bm-blue-mid);background:#fff;color:var(--bm-blue);border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:12px;display:flex;align-items:center;gap:10px}
+.menu-btn .ico{font-size:20px}
+.menu-btn:disabled{opacity:.45;cursor:not-allowed}
+
+.submit-bar{padding:14px 16px 22px;display:flex;flex-direction:column;gap:8px;background:#fff}
+.submit-btn{width:100%;padding:14px;border:none;border-radius:10px;background:var(--bm-green);color:#fff;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px}
+.submit-btn:disabled{opacity:.6}
+.clear-btn,.secondary-btn{width:100%;padding:10px;border:1.5px solid #ccc;border-radius:10px;background:#fff;color:#666;font-size:13px;cursor:pointer}
+#screen-franjas .secondary-btn{border:1.5px solid var(--bm-blue);color:var(--bm-blue);font-weight:700;padding:14px;border-radius:10px}
+
+.status-banner{margin:12px 16px 0;padding:12px 14px;border-radius:8px;font-size:13px;font-weight:600;display:none}
+.status-banner.show{display:block}
+.status-banner.ok{background:#e6f4ea;color:var(--bm-green-dark);border:1px solid #b7ddc3}
+.status-banner.err{background:var(--bm-red-light);color:var(--bm-red);border:1px solid #f0bcbe}
+.status-banner.warn{background:var(--bm-amber-light);color:var(--bm-amber);border:1px solid #f0d9a8}
+
+.franja-row{display:flex;align-items:center;justify-content:space-between;padding:14px;border-radius:10px;margin-bottom:8px;background:#fff;border:1px solid var(--bm-blue-light);cursor:pointer}
+.franja-row .hora{font-weight:700;color:var(--bm-blue)}
+.franja-row .estado{font-size:12px;font-weight:600;padding:4px 10px;border-radius:20px}
+.franja-row.libre .estado{background:#e6f4ea;color:var(--bm-green-dark)}
+.franja-row.reservada{cursor:default}
+.franja-row.reservada .estado{background:var(--bm-blue-light);color:var(--bm-blue)}
+.franja-row.seleccionada{border-color:var(--bm-green);background:#e6f4ea}
+.franja-row.seleccionada .estado{background:var(--bm-green);color:#fff}
+
+.fecha-header{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--bm-blue);padding:10px 4px 6px;border-bottom:2px solid var(--bm-blue-light);margin-bottom:8px;margin-top:14px;cursor:pointer;display:flex;align-items:center;gap:8px}
+.fecha-header:first-child{margin-top:0}
+.fecha-header.es-hoy{color:#fff;background:var(--bm-red);border-bottom-color:var(--bm-red);border-radius:6px;padding:8px 10px;margin-left:-4px;margin-right:-4px}
+.fecha-header-texto{flex:1}
+.fecha-header-count{background:rgba(0,0,0,.08);color:inherit;border-radius:20px;padding:1px 8px;font-size:10px}
+.fecha-header.es-hoy .fecha-header-count{background:rgba(255,255,255,.25)}
+.fecha-header-flecha{font-size:13px}
+
+.agenda-grid{border-collapse:collapse;width:100%;table-layout:fixed;font-size:9px}
+.agenda-grid td{padding:1px;text-align:center;vertical-align:middle}
+.agenda-grid td:first-child{width:28px;color:#8a8fa3;font-size:8px;text-align:right;padding-right:3px;white-space:nowrap}
+.agenda-grid tr:first-child td{font-weight:700;color:var(--bm-blue);padding:4px 1px;font-size:10px}
+.agenda-grid-hoy{color:var(--bm-red)!important}
+.agenda-grid-cell-vacia{height:24px;border:1px dashed var(--bm-blue-light);border-radius:4px}
+.agenda-grid-cell{border-radius:4px;padding:3px 2px;min-height:18px;font-size:7.5px;line-height:1.15;color:#fff;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;cursor:pointer}
+.agenda-grid-cell.badge-Planificada{background:var(--bm-blue-mid)}
+.agenda-grid-cell.badge-Realizada{background:var(--bm-green)}
+.agenda-grid-cell.badge-Pospuesta{background:var(--bm-amber)}
+.agenda-grid-cell.badge-Cancelada{background:var(--bm-red)}
+.agenda-grid-cell.badge-Imprevista{background:#6a1fb0}
+
+.agenda-mes{border-collapse:collapse;width:100%;table-layout:fixed}
+.agenda-mes td{text-align:center;padding:3px 2px}
+.agenda-mes tr:first-child td{font-weight:700;font-size:10px;color:var(--bm-blue);padding-bottom:8px;border-bottom:1px solid var(--bm-blue-light)}
+.agenda-mes-dia{position:relative;margin:0 auto;width:32px;height:32px;line-height:32px;border-radius:50%;font-size:13px;color:#1a1a2e;cursor:pointer}
+.agenda-mes-dia:hover{background:var(--bm-blue-pale)}
+.agenda-mes-hoy{background:var(--bm-red);color:#fff;font-weight:700}
+.agenda-mes-punto{position:absolute;bottom:2px;left:50%;transform:translateX(-50%);width:5px;height:5px;border-radius:50%;background:var(--bm-blue-mid)}
+.agenda-mes-hoy .agenda-mes-punto{background:#fff}
+
+#agendaContainer{background:#fff;border-radius:12px;border:1px solid var(--bm-blue-light);padding:10px;box-shadow:0 1px 3px rgba(26,58,107,.08)}
+.agenda-header{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px}
+.agenda-header .section-title{margin-bottom:0}
+.agenda-flecha{background:#fff;border:1px solid var(--bm-blue-light);color:var(--bm-blue);width:28px;height:28px;border-radius:50%;font-size:15px;font-weight:700;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;padding:0}
+
+.visita-card{padding:14px;border-radius:10px;margin-bottom:10px;border:1.5px solid var(--bm-blue-light);cursor:pointer}
+.visita-card .top{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
+.visita-card .cliente{font-weight:700;color:var(--bm-blue);font-size:14px}
+.visita-card .fecha{font-size:12px;color:#667}
+.visita-card .obra{font-size:13px;color:#333}
+.badge{font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px}
+.badge.Planificada{background:var(--bm-blue-light);color:var(--bm-blue)}
+.badge.Realizada{background:#e6f4ea;color:var(--bm-green-dark)}
+.badge.Pospuesta{background:var(--bm-amber-light);color:var(--bm-amber)}
+.badge.Cancelada{background:var(--bm-red-light);color:var(--bm-red)}
+.badge.Imprevista{background:#eee0fb;color:#6a1fb0}
+
+.empty-state{text-align:center;padding:40px 20px;color:#8a8fa3;font-size:14px}
+
+.radio-group{display:flex;gap:10px}
+.radio-btn{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;border:1.5px solid var(--bm-blue-mid);border-radius:8px;padding:14px 10px;cursor:pointer;background:#fff;transition:background-color .15s,border-color .15s}
+.radio-btn input{width:auto;padding:0;pointer-events:none}
+.radio-btn span{margin:0;color:#1a1a2e;font-weight:500;pointer-events:none}
+.radio-btn:has(input:checked){background:var(--bm-blue-light);border-color:var(--bm-blue)}
+.radio-btn:has(input:checked) span{color:var(--bm-blue);font-weight:700}
+.radio-btn:has(#cv_oa_si:checked){background:#e6f4ea;border-color:var(--bm-green)}
+.radio-btn:has(#cv_oa_si:checked) span{color:var(--bm-green-dark);font-weight:700}
+.radio-btn:has(#cv_oa_no:checked){background:var(--bm-red-light);border-color:var(--bm-red)}
+.radio-btn:has(#cv_oa_no:checked) span{color:var(--bm-red);font-weight:700}
+
+.screen{display:none}
+.screen.active{display:block}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="form-header">
+    <button class="header-back" id="btnBack" onclick="volver()" style="display:none">←</button>
+    <div class="header-right">
+      <div class="header-title" id="headerTitle">Rutero Comercial</div>
+      <div class="header-sub" id="headerSub">BigMat · planificación y visitas</div>
+    </div>
+    <button class="header-home" id="btnHome" onclick="irAInicio()" style="display:none" title="Ir al menú principal" aria-label="Ir al menú principal">⌂</button>
+  </div>
+
+  <div id="statusBanner" class="status-banner"></div>
+
+  <!-- ===================== INICIO ===================== -->
+  <div class="screen active" id="screen-inicio">
+    <div class="section">
+      <div class="section-title">Comercial</div>
+      <div class="field">
+        <label class="required">¿Quién eres?</label>
+        <select id="comercial" required>
+          <option value="">— Seleccionar —</option>
+        </select>
+      </div>
+    </div>
+    <div class="section">
+      <button class="menu-btn" onclick="irA('fecha')"><span class="ico">📅</span> Planificador Semanal</button>
+      <button class="menu-btn" onclick="irA('rutero')"><span class="ico">📋</span> Rutero — Registro de Visitas</button>
+      <button class="menu-btn" onclick="irA('agenda')"><span class="ico">🗓️</span> Ver mi Agenda</button>
+      <button class="menu-btn" onclick="irA('clientes')"><span class="ico">📇</span> Clientes</button>
+    </div>
+    <div class="section">
+      <button class="menu-btn" onclick="irA('supervision')"><span class="ico">📊</span> Supervisión del equipo</button>
+    </div>
+  </div>
+
+  <!-- ===================== SELECCIÓN FECHA (planificador) ===================== -->
+  <div class="screen" id="screen-fecha">
+    <div class="section">
+      <div class="section-title">¿Qué día quieres planificar?</div>
+      <div class="field">
+        <label class="required">Fecha</label>
+        <input type="date" id="fechaPlanificador">
+      </div>
+    </div>
+    <div class="submit-bar">
+      <button class="submit-btn" onclick="irAFranjas()">Continuar</button>
+    </div>
+  </div>
+
+  <!-- ===================== FRANJAS ===================== -->
+  <div class="screen" id="screen-franjas">
+    <div class="section">
+      <div class="section-title" id="franjasFechaLabel">Franjas horarias</div>
+      <div id="franjasContainer"></div>
+    </div>
+    <div class="submit-bar">
+      <button class="secondary-btn" onclick="irA('fecha')">Elegir otra fecha</button>
+    </div>
+  </div>
+
+  <!-- ===================== NUEVA VISITA ===================== -->
+  <div class="screen" id="screen-nueva-visita">
+    <form id="nuevaVisitaForm" onsubmit="return false">
+      <div class="section">
+        <div class="section-title">Cliente</div>
+        <div class="field">
+          <label>¿Es un cliente nuevo?</label>
+          <div class="radio-group">
+            <label class="radio-btn" for="nv_tipo_existente"><input type="radio" name="nv_tipo_cliente" id="nv_tipo_existente" value="existente" checked onchange="cambiarTipoCliente('existente')"><span>Cliente existente</span></label>
+            <label class="radio-btn" for="nv_tipo_nuevo"><input type="radio" name="nv_tipo_cliente" id="nv_tipo_nuevo" value="nuevo" onchange="cambiarTipoCliente('nuevo')"><span>Cliente nuevo</span></label>
+          </div>
+        </div>
+        <div id="nv_bloque_existente">
+          <div class="field">
+            <label class="required">Cliente (razón social)</label>
+            <input type="text" id="nv_cliente" placeholder="Escribe para buscar..." autocomplete="off">
+            <div class="autocomplete-list" id="nv_cliente_list"></div>
+          </div>
+          <div class="field">
+            <label class="required">Partner (código cliente)</label>
+            <input type="text" id="nv_partner" placeholder="Escribe para buscar..." autocomplete="off">
+            <div class="autocomplete-list" id="nv_partner_list"></div>
+          </div>
+          <div class="row-2">
+            <button type="button" class="secondary-btn" id="btnVerHistorial" style="display:none" onclick="verHistorialCliente()">📜 Ver historial</button>
+            <button type="button" class="secondary-btn" id="btnVerFicha" style="display:none" onclick="verFichaCliente()">📇 Ver ficha</button>
+          </div>
+        </div>
+        <div id="nv_bloque_nuevo" style="display:none">
+          <div class="field">
+            <label class="required">CIF / NIF</label>
+            <input type="text" id="nv_cif" placeholder="B12345678" autocomplete="off" oninput="buscarPorCif(this.value)">
+            <div class="hint" id="nv_cif_hint"></div>
+          </div>
+          <div class="field"><label class="required">Razón Social</label><input type="text" id="nv_nuevo_razon" placeholder="Nombre de la empresa..."></div>
+          <div class="field"><label>Dirección fiscal</label><input type="text" id="nv_nuevo_direccion_fiscal" placeholder="Calle, número..."></div>
+          <div class="field"><label>Contacto</label><input type="text" id="nv_nuevo_contacto" placeholder="Nombre del contacto..."></div>
+          <div class="field"><label>Teléfono</label><input type="tel" id="nv_nuevo_telefono" placeholder="600-000-000"></div>
+        </div>
+      </div>
+      <div class="section">
+        <div class="section-title">Datos de la visita</div>
+        <div class="field" style="position:relative">
+          <label>Nombre de la obra</label>
+          <input type="text" id="nv_obra" placeholder="Nombre de la obra..." autocomplete="off" oninput="filtrarObrasCliente(this.value)">
+          <div class="autocomplete-list" id="nv_obra_list"></div>
+          <div class="hint" id="nv_obra_hint"></div>
+        </div>
+        <div class="field">
+          <label>Dirección de la obra</label>
+          <input type="text" id="nv_direccion" placeholder="Calle, número...">
+        </div>
+        <button type="button" class="secondary-btn" onclick="usarUbicacion()">📍 Usar mi ubicación</button>
+        <div class="hint" id="nv_ubicacion_hint"></div>
+        <div class="field" id="nv_motivo_field">
+          <label>Motivo de la visita</label>
+          <select id="nv_motivo">
+            <option value="">— Seleccionar —</option>
+            <option value="Primera visita">Primera visita</option>
+            <option value="Seguimiento obra">Seguimiento obra</option>
+            <option value="Cobro">Cobro</option>
+            <option value="Incidencia">Incidencia</option>
+            <option value="Prospección">Prospección</option>
+          </select>
+        </div>
+        <div class="field" id="nv_prioridad_field">
+          <label>Prioridad</label>
+          <select id="nv_prioridad">
+            <option value="">— Seleccionar —</option>
+            <option value="Alta">Alta</option>
+            <option value="Media">Media</option>
+            <option value="Baja">Baja</option>
+          </select>
+        </div>
+      </div>
+    </form>
+    <div class="submit-bar">
+      <button class="submit-btn" id="btnGuardarVisita" onclick="guardarVisita()">Guardar visita</button>
+      <button class="secondary-btn" onclick="cancelarNuevaVisita()">Cancelar</button>
+    </div>
+  </div>
+
+  <!-- ===================== RUTERO (pendientes) ===================== -->
+  <div class="screen" id="screen-rutero">
+    <div class="section">
+      <div class="section-title">Visitas planificadas pendientes</div>
+      <div id="ruteroContainer"></div>
+    </div>
+    <div class="submit-bar">
+      <button class="submit-btn" onclick="nuevaVisitaImprevista()">➕ Registrar visita no planificada</button>
+    </div>
+  </div>
+
+  <!-- ===================== COMPLETAR VISITA ===================== -->
+  <div class="screen" id="screen-completar">
+    <div class="section" id="completarContexto" style="background:var(--bm-blue-pale)"></div>
+    <form id="completarForm" onsubmit="return false">
+      <div class="section">
+        <div class="section-title">Resultado de la visita</div>
+        <div class="field"><label>Fecha realizada</label><input type="date" id="cv_fecha_realizada"></div>
+        <div class="field">
+          <label class="required">Estado de la visita</label>
+          <select id="cv_estado" onchange="manejarCambioEstado(this.value)">
+            <option value="">— Seleccionar —</option>
+            <option value="Realizada">Realizada</option>
+            <option value="Pospuesta">Pospuesta</option>
+            <option value="Cancelada">Cancelada</option>
+            <option value="Imprevista">Imprevista</option>
+          </select>
+        </div>
+        <div class="field" id="cv_reprogramar_prompt" style="display:none;background:var(--bm-amber-light);border-radius:8px;padding:12px">
+          <div style="font-size:13px;color:var(--bm-amber);font-weight:600;margin-bottom:8px">¿Quieres planificar cuándo retomar esta visita?</div>
+          <div class="row-2">
+            <button type="button" class="secondary-btn" onclick="irAReprogramar()">📅 Sí, planificar</button>
+            <button type="button" class="secondary-btn" onclick="irANoReprogramar()">No, por ahora no</button>
+          </div>
+        </div>
+        <div class="field">
+          <label>Tipo de visita</label>
+          <select id="cv_tipo">
+            <option value="">— Seleccionar —</option>
+            <option value="En obra">En obra</option>
+            <option value="En tienda">En tienda</option>
+            <option value="Telefónica">Telefónica</option>
+            <option value="Videollamada">Videollamada</option>
+          </select>
+        </div>
+        <div class="field"><label>¿Obra activa?</label>
+          <div class="radio-group">
+            <label class="radio-btn" for="cv_oa_si"><input type="radio" name="cv_obra_activa" id="cv_oa_si" value="Sí"><span>Sí</span></label>
+            <label class="radio-btn" for="cv_oa_no"><input type="radio" name="cv_obra_activa" id="cv_oa_no" value="No"><span>No</span></label>
+          </div>
+        </div>
+        <div class="field">
+          <label>Volumen de obra</label>
+          <select id="cv_volumen">
+            <option value="">— Seleccionar —</option>
+            <option value="Pequeña (menos de 15.000 €)">Pequeña (menos de 15.000 €)</option>
+            <option value="Mediana (15.000-50.000 €)">Mediana (15.000-50.000 €)</option>
+            <option value="Grande (más de 50.000 €)">Grande (más de 50.000 €)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Fase de la obra</label>
+          <select id="cv_fase">
+            <option value="">— Seleccionar —</option>
+            <option value="Inicio/Derribo">Inicio/Derribo</option>
+            <option value="Estructura">Estructura</option>
+            <option value="Instalaciones">Instalaciones</option>
+            <option value="Acabado">Acabado</option>
+            <option value="Cierre">Cierre</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Resultado de la visita</label>
+          <select id="cv_resultado" onchange="document.getElementById('cv_resultado_otro_wrap').style.display = this.value==='Otros' ? '' : 'none'">
+            <option value="">— Seleccionar —</option>
+            <option value="Pedido cerrado">Pedido cerrado</option>
+            <option value="Sin pedido">Sin pedido</option>
+            <option value="Cancelada">Cancelada</option>
+            <option value="Postergada">Postergada</option>
+            <option value="Otros">Otros</option>
+          </select>
+        </div>
+        <div class="field" id="cv_resultado_otro_wrap" style="display:none">
+          <label>Especifica el resultado</label>
+          <input type="text" id="cv_resultado_otro" placeholder="Describe el resultado...">
+        </div>
+        <div class="field"><label>Importe pedido (€)</label><input type="number" id="cv_importe" step="0.01" min="0"></div>
+        <div class="field"><label>Necesidad detectada</label><textarea id="cv_necesidad" placeholder="..."></textarea></div>
+      </div>
+      <div class="section">
+        <div class="section-title">Próxima acción</div>
+        <div class="field"><label>Próxima acción</label><input type="text" id="cv_proxima_accion" placeholder="Qué toca hacer después..."></div>
+        <div class="field"><label>Fecha próxima acción</label><input type="date" id="cv_fecha_proxima" oninput="mostrarFranjasProxima(this.value)"></div>
+        <div id="cv_franjas_proxima_container"></div>
+        <div class="hint">Si rellenas la fecha de próxima acción, se creará automáticamente una nueva visita planificada para ese día — elige una franja libre para dejarla ya con hora, o déjalo sin franja si aún no lo sabes.</div>
+      </div>
+      <div class="section">
+        <div class="section-title">Comentarios</div>
+        <div class="field"><textarea id="cv_comentarios" placeholder="Comentarios..."></textarea></div>
+      </div>
+    </form>
+    <div class="submit-bar">
+      <button class="submit-btn" id="btnGuardarCompletar" onclick="guardarCompletarVisita()">Guardar y cerrar visita</button>
+    </div>
+  </div>
+
+  <!-- ===================== HISTORIAL CLIENTE ===================== -->
+  <div class="screen" id="screen-historial">
+    <div class="section">
+      <div class="section-title" id="historialClienteLabel">Historial del cliente</div>
+      <div id="historialContainer"></div>
+    </div>
+  </div>
+
+  <!-- ===================== BUSCAR CLIENTE (desde menú principal) ===================== -->
+  <div class="screen" id="screen-clientes">
+    <div class="section">
+      <div class="section-title">Ficha de cliente</div>
+      <div class="field" style="position:relative">
+        <label>Nombre del cliente</label>
+        <input type="text" id="cb_cliente" placeholder="Escribe para buscar..." autocomplete="off">
+        <div class="autocomplete-list" id="cb_cliente_list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== FICHA CLIENTE (CRM) ===================== -->
+  <div class="screen" id="screen-ficha">
+    <div class="section">
+      <div class="section-title">Datos del cliente</div>
+      <div id="fichaDatos"></div>
+    </div>
+    <div class="section">
+      <div id="fichaAvisoVencidas"></div>
+      <div class="section-title" id="fichaCreditoToggle" style="cursor:pointer;margin-bottom:0" onclick="toggleFichaCredito()">
+        Situación de crédito
+        <span id="fichaCreditoChevron" style="margin-left:auto;font-size:11px">▸</span>
+      </div>
+      <div id="fichaCredito" style="display:none;margin-top:12px"></div>
+    </div>
+    <div class="section">
+      <div class="section-title">Contactos</div>
+      <div id="fichaContactos"></div>
+      <div class="field"><input type="text" id="fc_nombre" placeholder="Nombre del contacto"></div>
+      <div class="row-2">
+        <input type="text" id="fc_cargo" placeholder="Cargo (opcional)">
+        <input type="tel" id="fc_telefono" placeholder="Teléfono">
+      </div>
+      <button type="button" class="secondary-btn" style="border-style:dashed;margin-top:8px" onclick="anadirContacto()">+ Añadir contacto</button>
+    </div>
+    <div class="section">
+      <div class="section-title">Obras</div>
+      <div id="fichaObras"></div>
+      <div class="field"><input type="text" id="fo_nombre" placeholder="Nombre de la obra"></div>
+      <div class="field"><input type="text" id="fo_direccion" placeholder="Dirección"></div>
+      <button type="button" class="secondary-btn" style="border-style:dashed;margin-top:8px" onclick="anadirObraFicha()">+ Añadir obra</button>
+    </div>
+    <div class="section">
+      <div class="section-title">Comentarios</div>
+      <div id="fichaComentarios"></div>
+      <div class="field"><textarea id="fc_comentario" placeholder="Añadir un comentario..." style="min-height:50px"></textarea></div>
+      <button type="button" class="submit-btn" onclick="anadirComentario()">Guardar comentario</button>
+    </div>
+  </div>
+
+  <!-- ===================== SUPERVISIÓN DEL EQUIPO ===================== -->
+  <div class="screen" id="screen-supervision">
+    <div class="section">
+      <div id="supervisionCategoriaSelector" style="margin-bottom:10px"></div>
+      <div class="section-title" id="supervisionRangoLabel" style="margin-bottom:10px">Semana</div>
+      <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:10px;font-size:10px;color:#667">
+        <span><i style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--bm-red);margin-right:3px"></i>Sin planificar</span>
+        <span><i style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--bm-blue-mid);margin-right:3px"></i>Pendientes</span>
+        <span><i style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--bm-green);margin-right:3px"></i>Realizadas</span>
+        <span><i style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--bm-amber);margin-right:3px"></i>Pospuesta/Cancelada</span>
+      </div>
+    </div>
+    <div class="section">
+      <div id="supervisionContainer"></div>
+    </div>
+  </div>
+
+  <!-- ===================== AGENDA ===================== -->
+  <div class="screen" id="screen-agenda">
+    <div class="section">
+      <div class="field">
+        <div class="radio-group">
+          <label class="radio-btn" for="ag_vista_semana"><input type="radio" name="ag_vista" id="ag_vista_semana" value="semana" checked onchange="cambiarVistaAgenda('semana')"><span>Semana</span></label>
+          <label class="radio-btn" for="ag_vista_mes"><input type="radio" name="ag_vista" id="ag_vista_mes" value="mes" onchange="cambiarVistaAgenda('mes')"><span>Mes</span></label>
+        </div>
+      </div>
+      <div class="field">
+        <input type="date" id="ag_fecha" oninput="cargarAgenda()">
+      </div>
+      <div id="agendaLeyenda" style="display:none;flex-wrap:wrap;gap:10px;margin-top:10px;font-size:10px;color:#667">
+        <span><i style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--bm-blue-mid);margin-right:3px"></i>Planificada</span>
+        <span><i style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--bm-green);margin-right:3px"></i>Realizada</span>
+        <span><i style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--bm-amber);margin-right:3px"></i>Pospuesta</span>
+        <span><i style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--bm-red);margin-right:3px"></i>Cancelada</span>
+        <span><i style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#6a1fb0;margin-right:3px"></i>Imprevista</span>
+      </div>
+    </div>
+    <div class="section">
+      <div class="agenda-header">
+        <button type="button" class="agenda-flecha" onclick="moverAgenda(-1)" aria-label="Periodo anterior">‹</button>
+        <div class="section-title" id="agendaRangoLabel">Agenda</div>
+        <button type="button" class="agenda-flecha" onclick="moverAgenda(1)" aria-label="Periodo siguiente">›</button>
+      </div>
+      <div id="agendaContainer"></div>
+    </div>
+  </div>
+
+</div>
+
+<script type="module">
+/* ============================================================
+   Mismo proyecto Firebase que Pedidos de Venta — base de datos
+   compartida (comerciales, clientes) entre las dos apps.
+   ============================================================ */
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyCFlXktr5ekgUji_iJmS1g1p3-J99Ljtww",
+  authDomain: "bigmat-pedidos-venta.firebaseapp.com",
+  projectId: "bigmat-pedidos-venta",
+  storageBucket: "bigmat-pedidos-venta.firebasestorage.app",
+  messagingSenderId: "136604898443",
+  appId: "1:136604898443:web:77ef9c2b70d8637d79f08e"
+};
+
+import { initializeApp } from 'https://cdn.jsdelivr.net/npm/firebase@10.12.0/app/+esm';
+import {
+  getFirestore, collection, doc, getDoc, getDocs, addDoc, updateDoc, setDoc, arrayUnion,
+  query, where, orderBy, startAt, endAt, limit, serverTimestamp
+} from 'https://cdn.jsdelivr.net/npm/firebase@10.12.0/firestore/+esm';
+
+const app = initializeApp(FIREBASE_CONFIG);
+const db = getFirestore(app);
+
+const FRANJAS = ['08:00-09:00','09:00-10:00','10:00-11:00','11:00-12:00','12:00-13:00','13:00-14:00','15:00-16:00','16:00-17:00','17:00-18:00'];
+
+let comercialActual = null;   // {id, nombre}
+let fechaSeleccionada = '';
+let franjaSeleccionada = '';
+let esVisitaImprevista = false;
+let visitaActual = null;      // {id, ...datos} para completar
+let ubicacionTexto = '';
+let historialPantallas = [];
+let fichaPartnerActual = '';
+let supervisionPeriodo = 'semana';
+let supervisionComercialDetalle = null;
+let supervisionCategoria = null;
+let obrasClienteActual = [];  // [{nombreObra, direccionObra}] del cliente elegido en Nueva Visita
+let franjaProximaSeleccionada = '';  // franja elegida para la próxima acción (Completar Visita)
+let agendaVista = 'semana';  // 'dia' | 'semana' | 'mes'
+let agendaFechaAncla = '';  // fecha (YYYY-MM-DD) de referencia para la Agenda
+
+function formatearFechaISO(fecha){
+  // OJO: nunca usar toISOString() para esto -- convierte a UTC y puede
+  // desplazar la fecha un día (España va por delante de UTC). Construir el
+  // string a mano con los componentes LOCALES.
+  const y=fecha.getFullYear();
+  const m=String(fecha.getMonth()+1).padStart(2,'0');
+  const d=String(fecha.getDate()).padStart(2,'0');
+  return y+'-'+m+'-'+d;
+}
+function hoyLocal(){ return formatearFechaISO(new Date()); }
+function f(id){ const el=document.getElementById(id); return el?el.value.trim():''; }
+function getRadio(name){ const els=document.querySelectorAll('input[name="'+name+'"]:checked'); return els.length?els[0].value:''; }
+function showStatus(msg,tipo){ const b=document.getElementById('statusBanner'); b.textContent=msg; b.className='status-banner show '+tipo; window.scrollTo({top:0,behavior:'smooth'}); }
+function hideStatus(){ document.getElementById('statusBanner').classList.remove('show'); }
+function debounce(fn,ms){ let t; return function(...args){ clearTimeout(t); t=setTimeout(()=>fn.apply(null,args),ms); }; }
+function conTimeout(promesa, ms=15000){
+  return Promise.race([
+    promesa,
+    new Promise((_,reject)=>setTimeout(()=>reject(new Error('Tiempo de espera agotado (¿sin conexión o sin cuota de Firestore?)')), ms))
+  ]);
+}
+
+/* ---------- navegación entre pantallas ---------- */
+const TITULOS = {
+  inicio: ['Rutero Comercial','BigMat · planificación y visitas'],
+  fecha: ['Planificador Semanal','Elige el día a planificar'],
+  franjas: ['Franjas horarias','Toca una franja libre'],
+  'nueva-visita': ['Nueva visita','Datos de la visita'],
+  rutero: ['Rutero','Visitas pendientes'],
+  completar: ['Completar visita','Resultado de la visita'],
+  historial: ['Historial del cliente','Visitas anteriores'],
+  ficha: ['Ficha del cliente','Datos, contactos y notas'],
+  clientes: ['Clientes','Busca cualquier cliente'],
+  supervision: ['Supervisión del equipo','¿Quién ha planificado?'],
+  agenda: ['Mi Agenda','Vista día / semana']
+};
+window.irA = function irA(pantalla, guardarHistorial=true){
+  if(guardarHistorial){
+    const actual=document.querySelector('.screen.active');
+    if(actual) historialPantallas.push(actual.id.replace('screen-',''));
+  }
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById('screen-'+pantalla).classList.add('active');
+  const t=TITULOS[pantalla]||['Rutero Comercial',''];
+  document.getElementById('headerTitle').textContent=t[0];
+  document.getElementById('headerSub').textContent=t[1];
+  document.getElementById('btnBack').style.display = pantalla==='inicio' ? 'none' : '';
+  document.getElementById('btnHome').style.display = pantalla==='inicio' ? 'none' : '';
+  hideStatus();
+  window.scrollTo({top:0});
+  if(pantalla==='rutero') cargarRutero();
+  if(pantalla==='franjas') cargarFranjas();
+  if(pantalla==='completar' && visitaActual) window.abrirCompletar();
+  if(pantalla==='agenda') iniciarAgenda();
+  if(pantalla==='supervision') iniciarSupervision();
+  if(pantalla==='clientes'){
+    document.getElementById('cb_cliente').value='';
+    document.getElementById('cb_cliente_list').classList.remove('open');
+  }
+}
+window.volver = function volver(){
+  const anterior = historialPantallas.pop();
+  irA(anterior || 'inicio', false);
+}
+window.irAInicio = function irAInicio(){
+  historialPantallas.length = 0;
+  irA('inicio', false);
+}
+
+function requireComercial(){
+  if(!comercialActual){ showStatus('Elige primero tu nombre en Comercial.', 'warn'); return false; }
+  return true;
+}
+
+/* ---------- comerciales ---------- */
+async function cargarComerciales(){
+  const sel=document.getElementById('comercial');
+  const snap=await getDocs(collection(db,'comerciales'));
+  const opts=[];
+  snap.forEach(function(d){ const c=d.data(); if(c.activo===false) return; opts.push({id:d.id,nombre:c.nombre||d.id}); });
+  opts.sort((a,b)=>a.nombre.localeCompare(b.nombre));
+  opts.forEach(function(o){ const opt=document.createElement('option'); opt.value=o.id; opt.textContent=o.nombre; sel.appendChild(opt); });
+  sel.addEventListener('change', function(){
+    const opt=sel.options[sel.selectedIndex];
+    comercialActual = sel.value ? {id:sel.value, nombre:opt.textContent} : null;
+  });
+}
+
+/* ---------- autocompletado Cliente <-> Partner (mismo patrón que Pedidos de Venta) ---------- */
+function renderAutocomplete(listEl, items, onPick){
+  listEl.innerHTML='';
+  if(!items.length){ listEl.classList.remove('open'); return; }
+  items.forEach(function(it){
+    const row=document.createElement('div');
+    row.className='autocomplete-item';
+    row.innerHTML=it.mainText+(it.subText?'<small>'+it.subText+'</small>':'');
+    row.onclick=function(){ onPick(it); listEl.classList.remove('open'); };
+    listEl.appendChild(row);
+  });
+  listEl.classList.add('open');
+}
+async function buscarClientePorNombre(term){
+  const listEl=document.getElementById('nv_cliente_list');
+  if(!term){ listEl.classList.remove('open'); return; }
+  const termLower=term.toLowerCase();
+  const q=query(collection(db,'clientes'), orderBy('razonSocialLower'), startAt(termLower), endAt(termLower+''), limit(8));
+  const snap=await getDocs(q);
+  const items=[];
+  snap.forEach(function(d){ const c=d.data(); items.push({mainText:c.razonSocial,subText:'Partner: '+d.id,partner:d.id,razonSocial:c.razonSocial}); });
+  renderAutocomplete(listEl, items, seleccionarCliente);
+}
+async function buscarClientePorPartner(term){
+  const listEl=document.getElementById('nv_partner_list');
+  if(!term){ listEl.classList.remove('open'); return; }
+  const items=[];
+  try{
+    const exact=await getDoc(doc(db,'clientes',term));
+    if(exact.exists()){ const c=exact.data(); items.push({mainText:term,subText:c.razonSocial,partner:term,razonSocial:c.razonSocial}); }
+  }catch(e){}
+  const q=query(collection(db,'clientes'), orderBy('partner'), startAt(term), endAt(term+''), limit(8));
+  const snap=await getDocs(q);
+  snap.forEach(function(d){ if(d.id!==term){ const c=d.data(); items.push({mainText:d.id,subText:c.razonSocial,partner:d.id,razonSocial:c.razonSocial}); } });
+  renderAutocomplete(listEl, items, seleccionarCliente);
+}
+function seleccionarCliente(it){
+  document.getElementById('nv_cliente').value=it.razonSocial;
+  document.getElementById('nv_partner').value=it.partner;
+  document.getElementById('btnVerHistorial').style.display='';
+  document.getElementById('btnVerFicha').style.display='';
+  cargarObrasCliente(it.partner);
+}
+async function buscarClienteMenu(term){
+  const listEl=document.getElementById('cb_cliente_list');
+  if(!term){ listEl.classList.remove('open'); return; }
+  const termLower=term.toLowerCase();
+  const q=query(collection(db,'clientes'), orderBy('razonSocialLower'), startAt(termLower), endAt(termLower+''), limit(8));
+  const snap=await getDocs(q);
+  const items=[];
+  snap.forEach(function(d){ const c=d.data(); items.push({mainText:c.razonSocial,subText:'Partner: '+d.id,partner:d.id,razonSocial:c.razonSocial}); });
+  renderAutocomplete(listEl, items, seleccionarClienteMenu);
+}
+function seleccionarClienteMenu(it){
+  document.getElementById('nv_cliente').value=it.razonSocial;
+  document.getElementById('nv_partner').value=it.partner;
+  window.verFichaCliente();
+}
+const buscarClienteMenuDebounced=debounce(buscarClienteMenu,300);
+async function cargarObrasCliente(partner){
+  obrasClienteActual=[];
+  document.getElementById('nv_obra_hint').textContent='Buscando obras ya registradas de este cliente...';
+  try{
+    const q=query(collection(db,'visitas'), where('clientePartner','==',partner));
+    const snap=await getDocs(q);
+    const vistas=new Set();
+    snap.forEach(function(d){
+      const v=d.data();
+      const nombre=(v.nombreObra||'').trim();
+      if(!nombre) return;
+      const clave=nombre.toLowerCase();
+      if(vistas.has(clave)) return;
+      vistas.add(clave);
+      obrasClienteActual.push({nombreObra:nombre, direccionObra:v.direccionObra||''});
+    });
+    document.getElementById('nv_obra_hint').textContent = obrasClienteActual.length
+      ? obrasClienteActual.length+' obra(s) ya registrada(s) de este cliente — empieza a escribir para verlas.'
+      : 'Sin obras anteriores registradas de este cliente.';
+  }catch(err){
+    console.error(err);
+    document.getElementById('nv_obra_hint').textContent='';
+  }
+}
+window.filtrarObrasCliente = function filtrarObrasCliente(term){
+  const listEl=document.getElementById('nv_obra_list');
+  if(!term || !obrasClienteActual.length){ listEl.classList.remove('open'); return; }
+  const termLower=term.toLowerCase();
+  const items=obrasClienteActual
+    .filter(o=>o.nombreObra.toLowerCase().includes(termLower))
+    .map(o=>({mainText:o.nombreObra, subText:o.direccionObra, nombreObra:o.nombreObra, direccionObra:o.direccionObra}));
+  renderAutocomplete(listEl, items, function(it){
+    document.getElementById('nv_obra').value=it.nombreObra;
+    if(it.direccionObra) document.getElementById('nv_direccion').value=it.direccionObra;
+    listEl.classList.remove('open');
+  });
+}
+const buscarClienteDebounced=debounce(buscarClientePorNombre,300);
+const buscarPartnerDebounced=debounce(buscarClientePorPartner,300);
+
+/* ---------- planificador: selección de fecha ---------- */
+window.irAFranjas = function irAFranjas(){
+  if(!requireComercial()) return;
+  const fecha=f('fechaPlanificador');
+  if(!fecha){ showStatus('Elige una fecha.', 'warn'); return; }
+  fechaSeleccionada=fecha;
+  irA('franjas');
+}
+
+/* ---------- franjas ---------- */
+async function cargarFranjas(){
+  const label=document.getElementById('franjasFechaLabel');
+  label.textContent = 'Franjas — ' + fechaSeleccionada + ' (' + comercialActual.nombre + ')';
+  const cont=document.getElementById('franjasContainer');
+  cont.innerHTML='Cargando...';
+  let snap;
+  try{
+    const q=query(collection(db,'visitas'), where('comercialId','==',comercialActual.id), where('fechaVisita','==',fechaSeleccionada));
+    snap=await getDocs(q);
+  }catch(err){
+    console.error(err);
+    cont.innerHTML='<div class="empty-state">Error cargando franjas: '+err.message+'</div>';
+    return;
+  }
+  const ocupadas={};
+  snap.forEach(function(d){
+    const v=d.data();
+    if(v.franjaHoraria && !['Cancelada','Pospuesta'].includes(v.estadoVisita)) ocupadas[v.franjaHoraria]=v.clienteRazonSocial||'Reservada';
+  });
+  cont.innerHTML='';
+  FRANJAS.forEach(function(franja){
+    const ocupada=ocupadas[franja];
+    const row=document.createElement('div');
+    row.className='franja-row '+(ocupada?'reservada':'libre');
+    row.innerHTML='<span class="hora">'+franja+'</span><span class="estado">'+(ocupada?ocupada:'Libre')+'</span>';
+    if(!ocupada){ row.onclick=function(){ franjaSeleccionada=franja; esVisitaImprevista=false; abrirNuevaVisita(); }; }
+    cont.appendChild(row);
+  });
+}
+
+/* ---------- nueva visita ---------- */
+function mostrarBloqueCliente(tipo){
+  document.getElementById('nv_bloque_existente').style.display = tipo==='existente' ? '' : 'none';
+  document.getElementById('nv_bloque_nuevo').style.display = tipo==='nuevo' ? '' : 'none';
+}
+window.cambiarTipoCliente = function cambiarTipoCliente(tipo){
+  mostrarBloqueCliente(tipo);
+  ['nv_cif','nv_nuevo_razon','nv_nuevo_direccion_fiscal','nv_nuevo_contacto','nv_nuevo_telefono'].forEach(function(id){ document.getElementById(id).value=''; });
+  document.getElementById('nv_cif_hint').textContent='';
+  document.getElementById('nv_cliente').value='';
+  document.getElementById('nv_partner').value='';
+  document.getElementById('btnVerHistorial').style.display='none';
+  document.getElementById('btnVerFicha').style.display='none';
+}
+const buscarPorCifDebounced=debounce(async function(cif){
+  const hint=document.getElementById('nv_cif_hint');
+  if(!cif || cif.length<5){ hint.textContent=''; return; }
+  hint.textContent='Buscando...';
+  try{
+    const q=query(collection(db,'clientes'), where('cifUpper','==',cif.toUpperCase()), limit(1));
+    const snap=await getDocs(q);
+    if(!snap.empty){
+      const d=snap.docs[0];
+      const c=d.data();
+      document.getElementById('nv_tipo_existente').checked=true;
+      mostrarBloqueCliente('existente');
+      document.getElementById('nv_cliente').value=c.razonSocial;
+      document.getElementById('nv_partner').value=d.id;
+      document.getElementById('btnVerHistorial').style.display='';
+      document.getElementById('btnVerFicha').style.display='';
+      cargarObrasCliente(d.id);
+      hint.textContent='';
+      showStatus('Cliente encontrado por CIF: '+c.razonSocial+'. Seleccionado automáticamente.', 'ok');
+    } else {
+      hint.textContent='No encontrado en nuestra base — se guardará para revisión y alta.';
+    }
+  }catch(err){
+    console.error(err);
+    hint.textContent='';
+  }
+},400);
+window.buscarPorCif=function buscarPorCif(cif){ buscarPorCifDebounced(cif); };
+
+function limpiarNuevaVisita(){
+  ['nv_cliente','nv_partner','nv_obra','nv_motivo','nv_prioridad','nv_direccion','nv_cif','nv_nuevo_razon','nv_nuevo_direccion_fiscal','nv_nuevo_contacto','nv_nuevo_telefono'].forEach(function(id){ document.getElementById(id).value=''; });
+  document.getElementById('btnVerHistorial').style.display='none';
+  document.getElementById('btnVerFicha').style.display='none';
+  document.getElementById('nv_ubicacion_hint').textContent='';
+  document.getElementById('nv_obra_hint').textContent='';
+  document.getElementById('nv_obra_list').classList.remove('open');
+  document.getElementById('nv_cif_hint').textContent='';
+  document.getElementById('nv_tipo_existente').checked=true;
+  mostrarBloqueCliente('existente');
+  ubicacionTexto='';
+  obrasClienteActual=[];
+}
+function abrirNuevaVisita(){
+  limpiarNuevaVisita();
+  irA('nueva-visita');
+  document.getElementById('nv_prioridad_field').style.display = esVisitaImprevista ? 'none' : '';
+  document.getElementById('btnGuardarVisita').textContent = esVisitaImprevista ? 'Continuar' : 'Guardar visita';
+}
+window.nuevaVisitaImprevista = function nuevaVisitaImprevista(){
+  if(!requireComercial()) return;
+  esVisitaImprevista=true;
+  franjaSeleccionada='';
+  fechaSeleccionada = hoyLocal();
+  abrirNuevaVisita();
+}
+window.cancelarNuevaVisita = function cancelarNuevaVisita(){
+  irA(esVisitaImprevista ? 'rutero' : 'franjas', false);
+}
+window.usarUbicacion = function usarUbicacion(){
+  if(!navigator.geolocation){ showStatus('Este dispositivo no permite geolocalización.', 'warn'); return; }
+  navigator.geolocation.getCurrentPosition(function(pos){
+    ubicacionTexto='https://www.google.com/maps?q='+pos.coords.latitude+','+pos.coords.longitude;
+    document.getElementById('nv_ubicacion_hint').textContent='📍 Ubicación capturada: '+ubicacionTexto;
+  }, function(){
+    showStatus('No se pudo obtener la ubicación.', 'warn');
+  });
+}
+window.guardarVisita = async function guardarVisita(){
+  if(!requireComercial()) return;
+  const esNuevo=document.getElementById('nv_tipo_nuevo').checked;
+  let partner, cliente, datosClienteNuevo=null;
+  if(esNuevo){
+    const razon=f('nv_nuevo_razon'), cif=f('nv_cif');
+    if(!cif || !razon){ showStatus('Rellena CIF y Razón Social del cliente nuevo.', 'warn'); return; }
+    partner=''; cliente=razon;
+    datosClienteNuevo={
+      razonSocial:razon, cif:cif, cifUpper:cif.toUpperCase(),
+      direccionFiscal:f('nv_nuevo_direccion_fiscal'), contacto:f('nv_nuevo_contacto'), telefono:f('nv_nuevo_telefono')
+    };
+  } else {
+    partner=f('nv_partner'); cliente=f('nv_cliente');
+    if(!partner || !cliente){ showStatus('Elige un cliente (Cliente y Partner son obligatorios).', 'warn'); return; }
+  }
+  const btn=document.getElementById('btnGuardarVisita');
+  const textoOriginalBtn=btn.textContent;
+  btn.disabled=true; btn.textContent='Guardando...';
+  try{
+    const visita={
+      comercialId:comercialActual.id, comercialNombre:comercialActual.nombre,
+      clientePartner:partner, clienteRazonSocial:cliente, esClienteNuevo:!!esNuevo,
+      nombreObra:f('nv_obra'),
+      fechaVisita: esVisitaImprevista ? hoyLocal() : fechaSeleccionada,
+      franjaHoraria: esVisitaImprevista ? '' : franjaSeleccionada,
+      motivoVisita:f('nv_motivo'), prioridad:f('nv_prioridad'),
+      direccionObra:f('nv_direccion'), ubicacionMaps:ubicacionTexto,
+      estadoVisita: esVisitaImprevista ? 'Imprevista' : 'Planificada',
+      fechaRealizada:null, resultadoVisita:'', importePedido:null,
+      proximaAccion:'', fechaProximaAccion:null,
+      tipoVisita:'', obraActiva:null, faseObra:'', volumenObra:'', necesidadDetectada:'',
+      comentarios:'',
+      creadoEn:serverTimestamp(), actualizadoEn:serverTimestamp()
+    };
+    const ref=await conTimeout(addDoc(collection(db,'visitas'), visita));
+    if(esNuevo){
+      await conTimeout(addDoc(collection(db,'clientesNuevos'), {
+        ...datosClienteNuevo,
+        comercialId:comercialActual.id, comercialNombre:comercialActual.nombre,
+        visitaId:ref.id,
+        estado:'Pendiente de revisar',
+        creadoEn:serverTimestamp()
+      }));
+      showStatus('Visita guardada. Cliente nuevo enviado a revisión para alta en el sistema.', 'ok');
+    } else {
+      showStatus('Visita guardada correctamente.', 'ok');
+    }
+    if(esVisitaImprevista){
+      visitaActual={id:ref.id, ...visita};
+      irA('completar');
+    } else {
+      irA('franjas', false);
+    }
+  }catch(err){
+    console.error(err);
+    showStatus('Error al guardar: '+err.message, 'err');
+  }finally{
+    btn.disabled=false; btn.textContent=textoOriginalBtn;
+  }
+}
+
+/* ---------- rutero (pendientes) ---------- */
+async function cargarRutero(){
+  if(!requireComercial()) return;
+  const cont=document.getElementById('ruteroContainer');
+  cont.innerHTML='Cargando...';
+  let snap;
+  try{
+    const q=query(collection(db,'visitas'), where('comercialId','==',comercialActual.id), where('estadoVisita','==','Planificada'), orderBy('fechaVisita'));
+    snap=await getDocs(q);
+  }catch(err){
+    console.error(err);
+    cont.innerHTML='<div class="empty-state">Error cargando visitas: '+err.message+'</div>';
+    return;
+  }
+  cont.innerHTML='';
+  if(snap.empty){ cont.innerHTML='<div class="empty-state">No tienes visitas planificadas pendientes.</div>'; return; }
+
+  const hoy=hoyLocal();
+  const grupos={};
+  const orden=[];
+  snap.forEach(function(d){
+    const v=d.data();
+    const fecha=v.fechaVisita||'(sin fecha)';
+    if(!grupos[fecha]){ grupos[fecha]=[]; orden.push(fecha); }
+    grupos[fecha].push({id:d.id, ...v});
+  });
+
+  orden.forEach(function(fecha, idx){
+    const esHoy=fecha===hoy;
+    const grupoId='grupo-fecha-'+idx;
+
+    const header=document.createElement('div');
+    header.className='fecha-header'+(esHoy?' es-hoy':'');
+    header.innerHTML='<span class="fecha-header-texto">'+formatFechaCabecera(fecha)+'</span>'+
+      '<span class="fecha-header-count">'+grupos[fecha].length+'</span>'+
+      '<span class="fecha-header-flecha">'+(esHoy?'▾':'▸')+'</span>';
+    header.onclick=function(){
+      const body=document.getElementById(grupoId);
+      const abierto=body.style.display!=='none';
+      body.style.display=abierto?'none':'';
+      header.querySelector('.fecha-header-flecha').textContent=abierto?'▸':'▾';
+    };
+    cont.appendChild(header);
+
+    const body=document.createElement('div');
+    body.id=grupoId;
+    body.style.display=esHoy?'':'none';
+    grupos[fecha].forEach(function(v){
+      const card=document.createElement('div');
+      card.className='visita-card';
+      card.innerHTML=
+        '<div class="top"><span class="cliente">'+(v.clienteRazonSocial||'')+'</span><span class="badge '+v.estadoVisita+'">'+v.estadoVisita+'</span></div>'+
+        '<div class="fecha">'+(v.franjaHoraria||'Sin franja')+'</div>'+
+        '<div class="obra">'+(v.nombreObra||'')+'</div>';
+      card.onclick=function(){ visitaActual=v; irA('completar'); };
+      body.appendChild(card);
+    });
+    cont.appendChild(body);
+  });
+}
+
+function formatFechaCabecera(fechaStr){
+  if(fechaStr==='(sin fecha)') return fechaStr;
+  const [y,m,d]=fechaStr.split('-').map(Number);
+  const fecha=new Date(y,m-1,d);
+  const dias=['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
+  const meses=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  const hoy=hoyLocal();
+  const texto=dias[fecha.getDay()]+' '+d+' de '+meses[m-1];
+  return fechaStr===hoy ? 'HOY · '+texto : texto;
+}
+
+/* ---------- agenda (día/semana) ---------- */
+function lunesDeLaSemana(fechaStr){
+  const [y,m,d]=fechaStr.split('-').map(Number);
+  const fecha=new Date(y,m-1,d);
+  const dow=fecha.getDay();
+  const offset = dow===0 ? -6 : (1-dow);
+  fecha.setDate(fecha.getDate()+offset);
+  return formatearFechaISO(fecha);
+}
+function sumarDias(fechaStr, dias){
+  const [y,m,d]=fechaStr.split('-').map(Number);
+  const fecha=new Date(y,m-1,d);
+  fecha.setDate(fecha.getDate()+dias);
+  return formatearFechaISO(fecha);
+}
+function formatFechaCorta(fechaStr){
+  const [,m,d]=fechaStr.split('-').map(Number);
+  return String(d).padStart(2,'0')+'/'+String(m).padStart(2,'0');
+}
+function crearVisitaCard(v, soloLectura){
+  const card=document.createElement('div');
+  card.className='visita-card';
+  card.innerHTML=
+    '<div class="top"><span class="cliente">'+(v.clienteRazonSocial||'')+'</span><span class="badge '+v.estadoVisita+'">'+v.estadoVisita+'</span></div>'+
+    '<div class="fecha">'+(v.franjaHoraria||'Sin franja')+'</div>'+
+    '<div class="obra">'+(v.nombreObra||'')+'</div>';
+  if(soloLectura) card.style.cursor='default';
+  else card.onclick=function(){ visitaActual=v; irA('completar'); };
+  return card;
+}
+function primerDiaDelMes(fechaStr){
+  const [y,m]=fechaStr.split('-').map(Number);
+  return y+'-'+String(m).padStart(2,'0')+'-01';
+}
+function ultimoDiaDelMes(fechaStr){
+  const [y,m]=fechaStr.split('-').map(Number);
+  return formatearFechaISO(new Date(y,m,0));
+}
+async function cargarAgenda(){
+  if(!requireComercial()) return;
+  agendaFechaAncla = document.getElementById('ag_fecha').value || hoyLocal();
+  let inicio, fin;
+  const label=document.getElementById('agendaRangoLabel');
+  const leyenda=document.getElementById('agendaLeyenda');
+  leyenda.style.display = agendaVista==='mes' ? 'none' : 'flex';
+  if(agendaVista==='semana'){
+    inicio=lunesDeLaSemana(agendaFechaAncla);
+    fin=sumarDias(inicio,4);
+    label.textContent='Semana del '+formatFechaCorta(inicio)+' al '+formatFechaCorta(fin)+' (lun-vie)';
+  } else if(agendaVista==='mes'){
+    inicio=primerDiaDelMes(agendaFechaAncla);
+    fin=ultimoDiaDelMes(agendaFechaAncla);
+    const meses=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+    label.textContent=meses[Number(agendaFechaAncla.split('-')[1])-1]+' de '+agendaFechaAncla.split('-')[0];
+  } else {
+    inicio=fin=agendaFechaAncla;
+    label.textContent=formatFechaCabecera(agendaFechaAncla);
+  }
+  const cont=document.getElementById('agendaContainer');
+  cont.innerHTML='Cargando...';
+  let snap;
+  try{
+    const q=query(collection(db,'visitas'), where('comercialId','==',comercialActual.id), where('fechaVisita','>=',inicio), where('fechaVisita','<=',fin));
+    snap=await getDocs(q);
+  }catch(err){
+    console.error(err);
+    cont.innerHTML='<div class="empty-state">Error cargando agenda: '+err.message+'</div>';
+    return;
+  }
+  const visitas=[];
+  snap.forEach(function(d){ visitas.push({id:d.id, ...d.data()}); });
+  visitas.sort(function(a,b){
+    const fa=(a.fechaVisita||'')+(a.franjaHoraria||'99:99'), fb=(b.fechaVisita||'')+(b.franjaHoraria||'99:99');
+    return fa<fb?-1:(fa>fb?1:0);
+  });
+  cont.innerHTML='';
+  if(agendaVista==='mes'){
+    renderizarMiniCalendarioMes(cont, visitas, inicio, fin);
+    return;
+  }
+  if(visitas.length===0){ cont.innerHTML='<div class="empty-state">Sin visitas en este periodo.</div>'; return; }
+  if(agendaVista==='dia'){
+    visitas.forEach(function(v){ cont.appendChild(crearVisitaCard(v)); });
+  } else {
+    renderizarCuadriculaSemana(cont, visitas, inicio);
+  }
+}
+function renderizarMiniCalendarioMes(cont, visitas, inicio, fin, soloLectura){
+  const conteoPorDia={};
+  visitas.forEach(function(v){ conteoPorDia[v.fechaVisita]=(conteoPorDia[v.fechaVisita]||0)+1; });
+  const hoy=hoyLocal();
+  const [y,m]=inicio.split('-').map(Number);
+  const primerDia=new Date(y,m-1,1);
+  const diaSemanaPrimero=primerDia.getDay();
+  const offsetInicial = diaSemanaPrimero===0 ? 6 : diaSemanaPrimero-1;
+  const ultimoDiaNum=Number(fin.split('-')[2]);
+  const celdas=[];
+  for(let i=0;i<offsetInicial;i++) celdas.push(null);
+  for(let d=1; d<=ultimoDiaNum; d++){ celdas.push(y+'-'+String(m).padStart(2,'0')+'-'+String(d).padStart(2,'0')); }
+  while(celdas.length%7!==0) celdas.push(null);
+  const tabla=document.createElement('table');
+  tabla.className='agenda-mes';
+  let filaCab='<tr>';
+  ['L','M','X','J','V','S','D'].forEach(function(l){ filaCab+='<td>'+l+'</td>'; });
+  filaCab+='</tr>';
+  let filas='';
+  for(let i=0;i<celdas.length;i+=7){
+    filas+='<tr>';
+    celdas.slice(i,i+7).forEach(function(f){
+      if(!f){ filas+='<td></td>'; return; }
+      const num=Number(f.split('-')[2]);
+      const cuenta=conteoPorDia[f]||0;
+      filas+='<td><div class="agenda-mes-dia'+(f===hoy?' agenda-mes-hoy':'')+'" data-fecha="'+f+'">'+num+(cuenta?'<span class="agenda-mes-punto"></span>':'')+'</div></td>';
+    });
+    filas+='</tr>';
+  }
+  tabla.innerHTML=filaCab+filas;
+  cont.appendChild(tabla);
+  if(!soloLectura){
+    tabla.querySelectorAll('.agenda-mes-dia[data-fecha]').forEach(function(celda){
+      celda.onclick=function(){
+        agendaFechaAncla=celda.getAttribute('data-fecha');
+        agendaVista='semana';
+        document.getElementById('ag_vista_semana').checked=true;
+        document.getElementById('ag_fecha').value=agendaFechaAncla;
+        cargarAgenda();
+      };
+    });
+  }
+}
+function renderizarCuadriculaSemana(cont, visitas, inicio, soloLectura){
+  const nombresDias=['Lun','Mar','Mié','Jue','Vie'];
+  const hoy=hoyLocal();
+  const fechasSemana=[]; for(let i=0;i<5;i++) fechasSemana.push(sumarDias(inicio,i));
+  const mapa={};
+  visitas.forEach(function(v){
+    if(!v.franjaHoraria) return;
+    if(!mapa[v.fechaVisita]) mapa[v.fechaVisita]={};
+    mapa[v.fechaVisita][v.franjaHoraria]=v;
+  });
+  const tabla=document.createElement('table');
+  tabla.className='agenda-grid';
+  let filaCab='<tr><td></td>';
+  fechasSemana.forEach(function(f,i){
+    const [,,d]=f.split('-');
+    filaCab+='<td class="'+(f===hoy?'agenda-grid-hoy':'')+'">'+nombresDias[i]+'<br>'+d+'</td>';
+  });
+  filaCab+='</tr>';
+  let filasCuerpo='';
+  FRANJAS.forEach(function(franja){
+    filasCuerpo+='<tr><td class="agenda-grid-hora">'+franja.split('-')[0]+'</td>';
+    fechasSemana.forEach(function(f){
+      const v=mapa[f] && mapa[f][franja];
+      filasCuerpo += v
+        ? '<td><div class="agenda-grid-cell badge-'+v.estadoVisita+'" data-id="'+v.id+'">'+(v.clienteRazonSocial||'')+'</div></td>'
+        : '<td><div class="agenda-grid-cell-vacia"></div></td>';
+    });
+    filasCuerpo+='</tr>';
+  });
+  tabla.innerHTML=filaCab+filasCuerpo;
+  cont.appendChild(tabla);
+  if(!soloLectura){
+    tabla.querySelectorAll('.agenda-grid-cell[data-id]').forEach(function(celda){
+      celda.onclick=function(){
+        const v=visitas.find(function(x){ return x.id===celda.getAttribute('data-id'); });
+        if(v){ visitaActual=v; irA('completar'); }
+      };
+    });
+  }
+  const sinFranja=visitas.filter(function(v){ return !v.franjaHoraria; });
+  if(sinFranja.length){
+    const aviso=document.createElement('div');
+    aviso.className='hint';
+    aviso.style.marginTop='10px';
+    aviso.textContent=sinFranja.length+' visita(s) sin franja horaria asignada (no aparecen en la cuadrícula).';
+    cont.appendChild(aviso);
+    sinFranja.forEach(function(v){ cont.appendChild(crearVisitaCard(v, soloLectura)); });
+  }
+}
+window.cargarAgenda=cargarAgenda;
+function iniciarAgenda(){
+  if(!requireComercial()) return;
+  if(!agendaFechaAncla) agendaFechaAncla=hoyLocal();
+  if(agendaVista==='dia') agendaVista='semana';  // "Día" ya no existe como vista independiente
+  document.getElementById('ag_fecha').value=agendaFechaAncla;
+  document.getElementById('ag_vista_semana').checked = agendaVista==='semana';
+  document.getElementById('ag_vista_mes').checked = agendaVista==='mes';
+  cargarAgenda();
+}
+window.cambiarVistaAgenda=function cambiarVistaAgenda(tipo){ agendaVista=tipo; cargarAgenda(); }
+function sumarMeses(fechaStr, meses){
+  const [y,m]=fechaStr.split('-').map(Number);
+  return formatearFechaISO(new Date(y,m-1+meses,1));
+}
+window.moverAgenda=function moverAgenda(delta){
+  if(agendaVista==='mes'){
+    agendaFechaAncla=sumarMeses(agendaFechaAncla || hoyLocal(), delta);
+  } else {
+    const dias = agendaVista==='semana' ? delta*7 : delta;
+    agendaFechaAncla=sumarDias(agendaFechaAncla || hoyLocal(), dias);
+  }
+  document.getElementById('ag_fecha').value=agendaFechaAncla;
+  cargarAgenda();
+}
+
+/* ---------- supervision del equipo ---------- */
+function iniciarSupervision(){
+  if(!requireComercial()) return;
+  supervisionComercialDetalle=null;
+  supervisionPeriodo='semana';
+  cargarSupervision();
+}
+window.cambiarPeriodoSupervision=function cambiarPeriodoSupervision(periodo){
+  supervisionPeriodo=periodo;
+  if(supervisionComercialDetalle) cargarDetalleComercial(); else cargarSupervision();
+}
+function rangoPeriodoSupervision(periodo){
+  const hoy=hoyLocal();
+  const MESES=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  if(periodo==='mes'){
+    const inicio=primerDiaDelMes(hoy), fin=ultimoDiaDelMes(hoy);
+    return {inicio, fin, label:MESES[Number(hoy.split('-')[1])-1]+' de '+hoy.split('-')[0]};
+  }
+  if(periodo==='acum'){
+    const [y,m]=hoy.split('-').map(Number);
+    const inicioDate=new Date(y,m-1-1,1);
+    const inicio=formatearFechaISO(inicioDate);
+    return {inicio, fin:hoy, label:MESES[inicioDate.getMonth()]+'-'+MESES[m-1]+' de '+y+' (2 meses)'};
+  }
+  const inicio=lunesDeLaSemana(hoy), fin=sumarDias(inicio,4);
+  return {inicio, fin, label:'Semana del '+formatFechaCorta(inicio)+' al '+formatFechaCorta(fin)};
+}
+async function cargarSupervision(){
+  const cont=document.getElementById('supervisionContainer');
+  cont.innerHTML='Cargando...';
+  const {inicio, fin, label}=rangoPeriodoSupervision('semana');
+  document.getElementById('supervisionRangoLabel').textContent=label;
+
+  let comercialesSnap, visitasSnap;
+  try{
+    comercialesSnap = await getDocs(collection(db,'comerciales'));
+    const q=query(collection(db,'visitas'), where('fechaVisita','>=',inicio), where('fechaVisita','<=',fin));
+    visitasSnap = await getDocs(q);
+  }catch(err){
+    console.error(err);
+    cont.innerHTML='<div class="empty-state">Error cargando supervisión: '+err.message+'</div>';
+    return;
+  }
+
+  const categorias=new Set();
+  const comercialesPorCategoria={};
+  comercialesSnap.forEach(function(d){
+    const c=d.data();
+    if(c.activo===false || !c.categoria) return;
+    categorias.add(c.categoria);
+    comercialesPorCategoria[d.id]={id:d.id, nombre:c.nombre||d.id, categoria:c.categoria, planificadas:0, realizadas:0, otras:0};
+  });
+  if(!supervisionCategoria || !categorias.has(supervisionCategoria)){
+    supervisionCategoria=Array.from(categorias).sort()[0] || null;
+  }
+  visitasSnap.forEach(function(d){
+    const v=d.data();
+    const e=comercialesPorCategoria[v.comercialId];
+    if(!e) return; // comercial sin categoria asignada: no se muestra en Supervisión
+    if(v.estadoVisita==='Planificada') e.planificadas++;
+    else if(v.estadoVisita==='Realizada') e.realizadas++;
+    else e.otras++;
+  });
+
+  pintarSelectorCategoria(Array.from(categorias).sort());
+  const lista=Object.values(comercialesPorCategoria).filter(function(e){ return e.categoria===supervisionCategoria; });
+  pintarListaSupervision(lista);
+}
+function pintarSelectorCategoria(categorias){
+  const cont=document.getElementById('supervisionCategoriaSelector');
+  if(!categorias.length){ cont.innerHTML=''; return; }
+  cont.innerHTML='<div class="radio-group">'+categorias.map(function(cat){
+    return '<label class="radio-btn" style="padding:10px 6px"><input type="radio" name="sup_categoria" '+(cat===supervisionCategoria?'checked':'')+' onchange="cambiarCategoriaSupervision(\''+cat+'\')"><span style="font-size:13px">'+cat+'</span></label>';
+  }).join('')+'</div>';
+}
+window.cambiarCategoriaSupervision=function cambiarCategoriaSupervision(categoria){
+  supervisionCategoria=categoria;
+  cargarSupervision();
+}
+function pintarListaSupervision(lista){
+  const cont=document.getElementById('supervisionContainer');
+  lista=lista.slice().sort(function(a,b){
+    const totalA=a.planificadas+a.realizadas+a.otras, totalB=b.planificadas+b.realizadas+b.otras;
+    if((totalA===0)!==(totalB===0)) return totalA===0 ? -1 : 1;
+    return a.nombre.localeCompare(b.nombre);
+  });
+  cont.innerHTML='';
+  if(!lista.length){ cont.innerHTML='<div class="empty-state">Sin comerciales activos.</div>'; return; }
+  lista.forEach(function(e){
+    const total=e.planificadas+e.realizadas+e.otras;
+    const card=document.createElement('div');
+    card.className='visita-card';
+    card.style.cssText='padding:12px 14px;margin-bottom:8px';
+    card.innerHTML=
+      '<div style="display:flex;justify-content:space-between;align-items:center">'+
+        '<span style="font-weight:700;color:var(--bm-blue)">'+e.nombre+'</span>'+
+        (total===0?'<span class="badge Cancelada">Sin planificar</span>':'')+
+      '</div>'+
+      (total>0?
+        '<div style="display:flex;gap:14px;margin-top:6px;font-size:12px;color:#667;flex-wrap:wrap">'+
+          '<span>🔵 '+e.planificadas+' pendientes</span>'+
+          '<span>🟢 '+e.realizadas+' realizadas</span>'+
+          '<span>🟠 '+e.otras+' pospuestas/canceladas</span>'+
+        '</div>' : '');
+    card.onclick=function(){ supervisionComercialDetalle={id:e.id, nombre:e.nombre}; cargarDetalleComercial(); };
+    cont.appendChild(card);
+  });
+}
+async function cargarDetalleComercial(){
+  const cont=document.getElementById('supervisionContainer');
+  cont.innerHTML='Cargando...';
+  const {id, nombre}=supervisionComercialDetalle;
+  const {inicio, fin, label}=rangoPeriodoSupervision(supervisionPeriodo);
+  document.getElementById('supervisionRangoLabel').textContent=nombre;
+
+  let visitasSnap, clientesSnap;
+  try{
+    const qVisitas=query(collection(db,'visitas'), where('comercialId','==',id), where('fechaVisita','>=',inicio), where('fechaVisita','<=',fin));
+    visitasSnap=await getDocs(qVisitas);
+    const qClientes=query(collection(db,'clientes'), where('plt','==',id));
+    clientesSnap=await getDocs(qClientes);
+  }catch(err){
+    console.error(err);
+    cont.innerHTML='<div class="empty-state">Error cargando detalle: '+err.message+'</div>';
+    return;
+  }
+
+  const visitas=[]; visitasSnap.forEach(function(d){ visitas.push(Object.assign({id:d.id}, d.data())); });
+  let pendientes=0, realizadas=0, otras=0;
+  const clientesTocados=new Set();
+  visitas.forEach(function(v){
+    if(v.estadoVisita==='Planificada') pendientes++;
+    else if(v.estadoVisita==='Realizada') realizadas++;
+    else otras++;
+    if(v.clientePartner) clientesTocados.add(v.clientePartner);
+  });
+  const cartera=clientesSnap.size;
+  const tocados=clientesTocados.size;
+  const pct=cartera ? Math.round(tocados/cartera*100) : 0;
+  const total=pendientes+realizadas+otras;
+
+  cont.innerHTML='';
+  const volver=document.createElement('div');
+  volver.style.cssText='font-size:13px;font-weight:600;color:var(--bm-blue);margin-bottom:12px;cursor:pointer';
+  volver.textContent='‹ Volver al equipo';
+  volver.onclick=function(){ supervisionComercialDetalle=null; cargarSupervision(); };
+  cont.appendChild(volver);
+
+  const selector=document.createElement('div');
+  selector.className='radio-group';
+  selector.style.marginBottom='14px';
+  selector.innerHTML=
+    '<label class="radio-btn" style="padding:10px 6px"><input type="radio" name="sup_periodo" '+(supervisionPeriodo==='semana'?'checked':'')+' onchange="cambiarPeriodoSupervision(\'semana\')"><span style="font-size:13px">Semana</span></label>'+
+    '<label class="radio-btn" style="padding:10px 6px"><input type="radio" name="sup_periodo" '+(supervisionPeriodo==='mes'?'checked':'')+' onchange="cambiarPeriodoSupervision(\'mes\')"><span style="font-size:13px">Mes</span></label>'+
+    '<label class="radio-btn" style="padding:10px 6px"><input type="radio" name="sup_periodo" '+(supervisionPeriodo==='acum'?'checked':'')+' onchange="cambiarPeriodoSupervision(\'acum\')"><span style="font-size:13px">Acum. 2 meses</span></label>';
+  cont.appendChild(selector);
+
+  const info=document.createElement('div');
+  info.style.cssText='background:#fff;border:1px solid var(--bm-blue-light);border-radius:12px;padding:14px;margin-bottom:16px';
+  info.innerHTML=
+    '<div style="font-size:13px;color:#667;margin-bottom:4px">Cobertura de cartera — '+label+'</div>'+
+    '<div style="display:flex;align-items:baseline;gap:6px;margin-bottom:8px">'+
+      '<span style="font-size:22px;font-weight:700;color:var(--bm-blue)">'+tocados+'</span>'+
+      '<span style="font-size:14px;color:#667">de '+cartera+' clientes distintos ('+pct+'%)</span>'+
+    '</div>'+
+    '<div style="background:var(--bm-blue-light);border-radius:20px;height:8px;overflow:hidden;margin-bottom:14px">'+
+      '<div style="background:var(--bm-blue-mid);height:100%;width:'+pct+'%"></div>'+
+    '</div>'+
+    '<div style="display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:#667;border-top:1px solid var(--bm-blue-light);padding-top:10px">'+
+      '<span>🔵 '+pendientes+' pendientes</span>'+
+      '<span>🟢 '+realizadas+' realizadas</span>'+
+      '<span>🟠 '+otras+' pospuestas/canceladas</span>'+
+      '<span style="font-weight:700;color:#1a1a2e">'+total+' visitas en total</span>'+
+    '</div>';
+  cont.appendChild(info);
+
+  const tituloAgenda=document.createElement('div');
+  tituloAgenda.className='section-title';
+  tituloAgenda.textContent='Agenda de '+nombre;
+  cont.appendChild(tituloAgenda);
+
+  const agendaCont=document.createElement('div');
+  cont.appendChild(agendaCont);
+
+  if(supervisionPeriodo==='mes'){
+    renderizarMiniCalendarioMes(agendaCont, visitas, inicio, fin, true);
+  } else if(supervisionPeriodo==='acum'){
+    const hint=document.createElement('div');
+    hint.className='hint';
+    hint.textContent='Cambia a Semana o Mes para ver el detalle día a día.';
+    agendaCont.appendChild(hint);
+  } else {
+    visitas.sort(function(a,b){
+      const fa=(a.fechaVisita||'')+(a.franjaHoraria||'99:99'), fb=(b.fechaVisita||'')+(b.franjaHoraria||'99:99');
+      return fa<fb?-1:(fa>fb?1:0);
+    });
+    if(!visitas.length){ agendaCont.innerHTML='<div class="empty-state">Sin visitas en este periodo.</div>'; }
+    else renderizarCuadriculaSemana(agendaCont, visitas, inicio, true);
+  }
+}
+
+/* ---------- completar visita ---------- */
+function limpiarCompletar(){
+  ['cv_fecha_realizada','cv_resultado','cv_resultado_otro','cv_importe','cv_tipo','cv_fase','cv_volumen','cv_necesidad','cv_proxima_accion','cv_fecha_proxima','cv_comentarios'].forEach(function(id){ document.getElementById(id).value=''; });
+  document.querySelectorAll('input[name=cv_obra_activa]').forEach(function(r){ r.checked=false; });
+  document.getElementById('cv_estado').value='';
+  document.getElementById('cv_resultado_otro_wrap').style.display='none';
+  document.getElementById('cv_reprogramar_prompt').style.display='none';
+  document.getElementById('cv_franjas_proxima_container').innerHTML='';
+  franjaProximaSeleccionada='';
+  const hintVolumen=document.getElementById('cv_volumen_hint');
+  if(hintVolumen) hintVolumen.remove();
+}
+window.manejarCambioEstado = function manejarCambioEstado(estado){
+  document.getElementById('cv_reprogramar_prompt').style.display =
+    (estado==='Cancelada' || estado==='Pospuesta') ? '' : 'none';
+}
+window.irAReprogramar = function irAReprogramar(){
+  const campo=document.getElementById('cv_fecha_proxima');
+  campo.scrollIntoView({behavior:'smooth', block:'center'});
+  campo.focus();
+}
+window.irANoReprogramar = function irANoReprogramar(){
+  const campo=document.getElementById('cv_comentarios');
+  campo.scrollIntoView({behavior:'smooth', block:'center'});
+  campo.focus();
+}
+window.mostrarFranjasProxima = async function mostrarFranjasProxima(fecha){
+  franjaProximaSeleccionada='';
+  const cont=document.getElementById('cv_franjas_proxima_container');
+  if(!fecha){ cont.innerHTML=''; return; }
+  cont.innerHTML='<div class="hint">Consultando franjas disponibles...</div>';
+  let snap;
+  try{
+    const q=query(collection(db,'visitas'), where('comercialId','==',comercialActual.id), where('fechaVisita','==',fecha));
+    snap=await getDocs(q);
+  }catch(err){
+    console.error(err);
+    cont.innerHTML='';
+    return;
+  }
+  const ocupadas={};
+  snap.forEach(function(d){
+    const v=d.data();
+    if(v.franjaHoraria && d.id!==visitaActual.id && !['Cancelada','Pospuesta'].includes(v.estadoVisita)) ocupadas[v.franjaHoraria]=v.clienteRazonSocial||'Reservada';
+  });
+  cont.innerHTML='<label style="font-size:12px;color:var(--bm-blue);font-weight:600">Franjas disponibles para '+fecha.split('-').reverse().join('/')+'</label>';
+  const lista=document.createElement('div');
+  lista.style.marginTop='6px';
+  FRANJAS.forEach(function(franja){
+    const ocupada=ocupadas[franja];
+    const row=document.createElement('div');
+    row.className='franja-row '+(ocupada?'reservada':'libre');
+    row.style.marginBottom='6px';
+    row.innerHTML='<span class="hora">'+franja+'</span><span class="estado">'+(ocupada?ocupada:'Libre')+'</span>';
+    if(!ocupada){
+      row.onclick=function(){
+        franjaProximaSeleccionada=franja;
+        lista.querySelectorAll('.franja-row').forEach(r=>r.classList.remove('seleccionada'));
+        row.classList.add('seleccionada');
+      };
+    }
+    lista.appendChild(row);
+  });
+  cont.appendChild(lista);
+}
+window.abrirCompletar = function abrirCompletar(){
+  limpiarCompletar();
+  const v=visitaActual;
+  document.getElementById('completarContexto').innerHTML =
+    '<strong>'+(v.clienteRazonSocial||'')+'</strong><br>'+
+    '<span style="font-size:13px;color:#667">'+(v.nombreObra||'')+' · '+(v.fechaVisita||'')+(v.franjaHoraria?' · '+v.franjaHoraria:'')+'</span>';
+  document.getElementById('cv_estado').value = v.estadoVisita==='Imprevista' ? '' : v.estadoVisita;
+  document.getElementById('cv_fecha_realizada').value = v.fechaRealizada || hoyLocal();
+  if(['Realizada','Pospuesta','Cancelada'].includes(v.estadoVisita)){
+    showStatus('⚠️ Esta visita ya está marcada como '+v.estadoVisita+'. Puedes corregirla si hace falta.', 'warn');
+  }
+  if(v.volumenObra){
+    document.getElementById('cv_volumen').value=v.volumenObra;
+  } else {
+    precargarVolumenObra(v);
+  }
+}
+
+async function precargarVolumenObra(v){
+  if(!v.clientePartner || !v.nombreObra) return;
+  try{
+    const q=query(collection(db,'visitas'), where('clientePartner','==',v.clientePartner), where('nombreObra','==',v.nombreObra));
+    const snap=await getDocs(q);
+    let encontrado='';
+    snap.forEach(function(d){
+      if(encontrado) return;
+      if(d.id===v.id) return;
+      const datos=d.data();
+      if(datos.volumenObra) encontrado=datos.volumenObra;
+    });
+    if(encontrado && !f('cv_volumen')){
+      document.getElementById('cv_volumen').value=encontrado;
+      document.getElementById('cv_volumen').closest('.field').insertAdjacentHTML('beforeend','<div class="hint" id="cv_volumen_hint">Precargado de una visita anterior a esta misma obra.</div>');
+    }
+  }catch(err){
+    console.error(err);
+  }
+}
+
+window.guardarCompletarVisita = async function guardarCompletarVisita(){
+  const estado=f('cv_estado');
+  if(!estado){ showStatus('Elige el estado de la visita antes de guardar.', 'warn'); return; }
+  const btn=document.getElementById('btnGuardarCompletar');
+  btn.disabled=true; btn.textContent='Guardando...';
+  try{
+    const cambios={
+      estadoVisita:estado,
+      fechaRealizada:f('cv_fecha_realizada')||null,
+      resultadoVisita: f('cv_resultado')==='Otros' ? f('cv_resultado_otro') : f('cv_resultado'),
+      importePedido:f('cv_importe')?Number(f('cv_importe')):null,
+      tipoVisita:f('cv_tipo'),
+      obraActiva:getRadio('cv_obra_activa')||null,
+      faseObra:f('cv_fase'),
+      volumenObra:f('cv_volumen'),
+      necesidadDetectada:f('cv_necesidad'),
+      proximaAccion:f('cv_proxima_accion'),
+      fechaProximaAccion:f('cv_fecha_proxima')||null,
+      comentarios:f('cv_comentarios'),
+      actualizadoEn:serverTimestamp()
+    };
+    await conTimeout(updateDoc(doc(db,'visitas',visitaActual.id), cambios));
+    if(f('cv_fecha_proxima')){
+      await conTimeout(addDoc(collection(db,'visitas'), {
+        comercialId:visitaActual.comercialId, comercialNombre:visitaActual.comercialNombre,
+        clientePartner:visitaActual.clientePartner, clienteRazonSocial:visitaActual.clienteRazonSocial,
+        nombreObra:visitaActual.nombreObra,
+        fechaVisita:f('cv_fecha_proxima'), franjaHoraria:franjaProximaSeleccionada,
+        motivoVisita:visitaActual.motivoVisita||'', prioridad:visitaActual.prioridad||'',
+        direccionObra:visitaActual.direccionObra||'', ubicacionMaps:visitaActual.ubicacionMaps||'',
+        estadoVisita:'Planificada',
+        fechaRealizada:null, resultadoVisita:'', importePedido:null,
+        proximaAccion:'', fechaProximaAccion:null,
+        tipoVisita:'', obraActiva:null, faseObra:'', volumenObra:'', necesidadDetectada:'',
+        comentarios:'',
+        creadoEn:serverTimestamp(), actualizadoEn:serverTimestamp()
+      }));
+    }
+    showStatus('Visita guardada y cerrada.', 'ok');
+    irA('rutero', false);
+  }catch(err){
+    console.error(err);
+    showStatus('Error al guardar: '+err.message, 'err');
+  }finally{
+    btn.disabled=false; btn.textContent='Guardar y cerrar visita';
+  }
+}
+
+/* ---------- historial de cliente ---------- */
+window.verHistorialCliente = async function verHistorialCliente(){
+  const partner=f('nv_partner');
+  if(!partner) return;
+  document.getElementById('historialClienteLabel').textContent='Historial — '+f('nv_cliente');
+  const cont=document.getElementById('historialContainer');
+  cont.innerHTML='Cargando...';
+  irA('historial');
+  let snap;
+  try{
+    const q=query(collection(db,'visitas'), where('clientePartner','==',partner), orderBy('fechaVisita','desc'));
+    snap=await getDocs(q);
+  }catch(err){
+    console.error(err);
+    cont.innerHTML='<div class="empty-state">Error cargando historial: '+err.message+'</div>';
+    return;
+  }
+  cont.innerHTML='';
+  if(snap.empty){ cont.innerHTML='<div class="empty-state">Sin visitas anteriores registradas para este cliente.</div>'; return; }
+  const visitas=[];
+  snap.forEach(function(d){ visitas.push(d.data()); });
+
+  function pintarVisita(v, compacta){
+    const card=document.createElement('div');
+    card.className='visita-card';
+    if(compacta){
+      card.style.padding='10px 14px';
+      card.style.cursor='default';
+      const resumen=[v.motivoVisita, v.resultadoVisita].filter(Boolean).join(' · ');
+      card.innerHTML=
+        '<div class="top" style="margin-bottom:0"><span class="fecha">'+(v.fechaVisita||'')+'</span><span class="badge '+v.estadoVisita+'">'+v.estadoVisita+'</span></div>'+
+        (resumen?'<div style="font-size:12px;color:#667;margin-top:3px">'+resumen+'</div>':'');
+    }else{
+      card.innerHTML=
+        '<div class="top"><span class="fecha">'+(v.fechaVisita||'')+'</span><span class="badge '+v.estadoVisita+'">'+v.estadoVisita+'</span></div>'+
+        '<div class="obra">'+(v.comercialNombre||'')+' · '+(v.motivoVisita||'')+'</div>'+
+        (v.resultadoVisita?'<div class="hint">'+v.resultadoVisita+'</div>':'')+
+        (v.comentarios?'<div class="hint">'+v.comentarios+'</div>':'');
+    }
+    return card;
+  }
+
+  visitas.slice(0,5).forEach(function(v){ cont.appendChild(pintarVisita(v, true)); });
+
+  if(visitas.length>5){
+    const masLink=document.createElement('div');
+    masLink.style.cssText='text-align:center;padding:10px 0 0;font-size:13px;font-weight:600;color:var(--bm-blue);cursor:pointer';
+    masLink.textContent='Ver historial completo ('+visitas.length+' visitas) ›';
+    masLink.onclick=function(){
+      masLink.remove();
+      visitas.slice(5).forEach(function(v){ cont.appendChild(pintarVisita(v, false)); });
+    };
+    cont.appendChild(masLink);
+  }
+}
+
+/* ---------- ficha del cliente (CRM) ---------- */
+window.verFichaCliente = async function verFichaCliente(){
+  const partner=f('nv_partner');
+  if(!partner) return;
+  fichaPartnerActual=partner;
+  const razon=f('nv_cliente');
+  irA('ficha');
+  document.getElementById('fichaDatos').innerHTML=
+    '<div style="font-size:15px;font-weight:700;color:var(--bm-blue)">'+razon+'</div>'+
+    '<div style="font-size:12px;color:#667;margin-top:4px">Partner '+partner+'</div>';
+  document.getElementById('fichaAvisoVencidas').innerHTML='';
+  ['fichaCredito','fichaContactos','fichaObras','fichaComentarios'].forEach(function(id){ document.getElementById(id).innerHTML='Cargando...'; });
+
+  let cliente=null;
+  try{
+    const snapCliente=await getDoc(doc(db,'clientes',partner));
+    if(snapCliente.exists()) cliente=snapCliente.data();
+  }catch(err){ console.error(err); }
+  if(cliente && cliente.numEmpleados!=null){
+    document.getElementById('fichaDatos').innerHTML+=
+      '<div style="font-size:12px;color:#667;margin-top:2px">Nº empleados: '+cliente.numEmpleados+'</div>';
+  }
+  pintarCredito(cliente);
+
+  let obrasAuto=[];
+  try{
+    const q=query(collection(db,'visitas'), where('clientePartner','==',partner));
+    const snap=await getDocs(q);
+    const vistas=new Set();
+    snap.forEach(function(d){
+      const v=d.data();
+      const nombre=(v.nombreObra||'').trim();
+      if(!nombre) return;
+      const clave=nombre.toLowerCase();
+      if(vistas.has(clave)) return;
+      vistas.add(clave);
+      obrasAuto.push({nombre:nombre, direccion:v.direccionObra||''});
+    });
+  }catch(err){ console.error(err); }
+
+  let info={contactos:[], obrasManual:[], comentarios:[]};
+  try{
+    const snapInfo=await getDoc(doc(db,'clientesInfo',partner));
+    if(snapInfo.exists()) info=Object.assign(info, snapInfo.data());
+  }catch(err){ console.error(err); }
+
+  pintarFicha(obrasAuto, info);
+}
+
+function formatEuros(n){
+  return Number(n||0).toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2})+' €';
+}
+window.toggleFichaCredito = function toggleFichaCredito(){
+  const cont=document.getElementById('fichaCredito');
+  const chevron=document.getElementById('fichaCreditoChevron');
+  const abierto=cont.style.display!=='none';
+  cont.style.display=abierto?'none':'';
+  chevron.textContent=abierto?'▸':'▾';
+}
+function pintarCredito(cliente){
+  const cont=document.getElementById('fichaCredito');
+  const aviso=document.getElementById('fichaAvisoVencidas');
+  if(!cliente){ cont.innerHTML='<div class="hint">Sin datos de crédito disponibles.</div>'; return; }
+
+  const facturasVencidas=cliente.facturasVencidas||0;
+  const facturasProximas=cliente.facturasProximasVencer||0;
+  let avisoHtml='';
+  if(facturasVencidas>0){
+    avisoHtml+='<div style="background:var(--bm-red-light);color:var(--bm-red);font-size:13px;font-weight:600;padding:8px 12px;border-radius:8px;margin-bottom:6px">⚠ Tiene '+facturasVencidas+' factura(s) vencida(s) ('+formatEuros(cliente.importeVencido)+')</div>';
+  }
+  if(facturasProximas>0){
+    avisoHtml+='<div style="background:var(--bm-amber-light);color:var(--bm-amber);font-size:13px;font-weight:600;padding:8px 12px;border-radius:8px;margin-bottom:6px">⏰ Tiene '+facturasProximas+' factura(s) que vencen este mes ('+formatEuros(cliente.importeProximoVencer)+')</div>';
+  }
+  aviso.innerHTML=avisoHtml;
+
+  const filas=[];
+  if(cliente.limiteCredito!=null) filas.push(['Límite de crédito', formatEuros(cliente.limiteCredito)]);
+  if(cliente.creditoAsegurado!=null) filas.push(['Crédito asegurado', formatEuros(cliente.creditoAsegurado)]);
+  if(cliente.formaPagoTexto) filas.push(['Forma de pago', cliente.formaPagoTexto]);
+  let html='';
+  if(filas.length){
+    html+='<table style="width:100%;font-size:13px;border-collapse:collapse">'+
+      filas.map(function(f){ return '<tr><td style="padding:4px 0;color:#667">'+f[0]+'</td><td style="padding:4px 0;text-align:right;font-weight:600;color:#1a1a2e">'+f[1]+'</td></tr>'; }).join('')+
+      '</table>';
+  }
+  const saldoPendiente=cliente.saldoPendienteCobro||0;
+  if(saldoPendiente>0){
+    html+='<div style="border-top:1px solid var(--bm-blue-light);margin-top:10px;padding-top:10px">';
+    html+='<div style="display:flex;justify-content:space-between;align-items:center">'+
+      '<span style="font-size:13px;color:#667">Pendiente de cobro ('+(cliente.facturasPendientes||0)+' factura(s))</span>'+
+      '<span style="font-size:15px;font-weight:700;color:var(--bm-red)">'+formatEuros(saldoPendiente)+'</span></div>';
+    if(facturasVencidas>0){
+      html+='<div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px">'+
+        '<span style="font-size:12px;color:#8a8fa3">&nbsp;&nbsp;· Vencidas ('+facturasVencidas+')</span>'+
+        '<span style="font-size:13px;color:var(--bm-red)">'+formatEuros(cliente.importeVencido)+'</span></div>';
+    }
+    if((cliente.facturasProximasVencer||0)>0){
+      html+='<div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px">'+
+        '<span style="font-size:12px;color:#8a8fa3">&nbsp;&nbsp;· Próximas a vencer este mes ('+cliente.facturasProximasVencer+')</span>'+
+        '<span style="font-size:13px;color:var(--bm-amber)">'+formatEuros(cliente.importeProximoVencer)+'</span></div>';
+    }
+    html+='</div>';
+  } else if(filas.length){
+    html+='<div class="hint" style="margin-top:8px">Sin facturas pendientes.</div>';
+  }
+  if(cliente.saldoActualizadoEn){
+    html+='<div class="hint" style="margin-top:8px">Saldo a fecha de la última carga: '+cliente.saldoActualizadoEn+'</div>';
+  }
+  cont.innerHTML = html || '<div class="hint">Sin datos de crédito disponibles.</div>';
+}
+function pintarFicha(obrasAuto, info){
+  const contCont=document.getElementById('fichaContactos');
+  const contactos=info.contactos||[];
+  contCont.innerHTML = contactos.length ? '' : '<div class="hint">Sin contactos guardados.</div>';
+  contactos.forEach(function(c){
+    const card=document.createElement('div');
+    card.className='visita-card';
+    card.style.cssText='cursor:default;padding:12px 14px;margin-bottom:8px';
+    card.innerHTML=
+      '<div style="display:flex;justify-content:space-between"><span style="font-weight:700;color:#1a1a2e">'+c.nombre+'</span>'+(c.cargo?'<span style="font-size:11px;color:#667">'+c.cargo+'</span>':'')+'</div>'+
+      (c.telefono?'<div style="font-size:13px;color:var(--bm-blue-mid);margin-top:2px">📞 '+c.telefono+'</div>':'');
+    contCont.appendChild(card);
+  });
+
+  const obrasCont=document.getElementById('fichaObras');
+  obrasCont.innerHTML='';
+  const obrasManual=info.obrasManual||[];
+  const nombresAuto=new Set(obrasAuto.map(function(o){ return o.nombre.toLowerCase(); }));
+  const todasObras=obrasAuto.concat(obrasManual.filter(function(o){ return !nombresAuto.has((o.nombre||'').toLowerCase()); }));
+  if(!todasObras.length){ obrasCont.innerHTML='<div class="hint">Sin obras registradas.</div>'; }
+  todasObras.forEach(function(o){
+    const esAuto=nombresAuto.has((o.nombre||'').toLowerCase());
+    const card=document.createElement('div');
+    card.className='visita-card';
+    card.style.cssText='cursor:default;padding:12px 14px;margin-bottom:8px';
+    card.innerHTML=
+      '<div style="font-weight:700;color:#1a1a2e">'+o.nombre+'</div>'+
+      (o.direccion?'<div style="font-size:12px;color:#667;margin-top:2px">'+o.direccion+'</div>':'')+
+      (esAuto?'<span class="todo-tag" style="margin-left:0;margin-top:4px;display:inline-block">Detectada en visitas</span>':'');
+    obrasCont.appendChild(card);
+  });
+
+  const comCont=document.getElementById('fichaComentarios');
+  const comentarios=(info.comentarios||[]).slice().sort(function(a,b){ return (b.fecha||'').localeCompare(a.fecha||''); });
+  comCont.innerHTML = comentarios.length ? '' : '<div class="hint">Sin comentarios todavía.</div>';
+  comentarios.forEach(function(c){
+    const item=document.createElement('div');
+    item.style.cssText='border-left:3px solid var(--bm-blue-light);padding:4px 0 4px 10px;margin-bottom:10px';
+    item.innerHTML=
+      '<div style="font-size:11px;color:#8a8fa3">'+(c.fecha||'')+' · '+(c.comercial||'')+'</div>'+
+      '<div style="font-size:13px;color:#333;margin-top:2px">'+c.texto+'</div>';
+    comCont.appendChild(item);
+  });
+}
+
+window.anadirContacto = async function anadirContacto(){
+  const nombre=f('fc_nombre');
+  if(!nombre){ showStatus('Escribe al menos el nombre del contacto.', 'warn'); return; }
+  const contacto={nombre:nombre, cargo:f('fc_cargo'), telefono:f('fc_telefono')};
+  try{
+    await conTimeout(setDoc(doc(db,'clientesInfo',fichaPartnerActual), {contactos:arrayUnion(contacto)}, {merge:true}));
+    ['fc_nombre','fc_cargo','fc_telefono'].forEach(function(id){ document.getElementById(id).value=''; });
+    showStatus('Contacto añadido.', 'ok');
+    window.verFichaCliente();
+  }catch(err){
+    console.error(err);
+    showStatus('Error al guardar: '+err.message, 'err');
+  }
+}
+
+window.anadirObraFicha = async function anadirObraFicha(){
+  const nombre=f('fo_nombre');
+  if(!nombre){ showStatus('Escribe al menos el nombre de la obra.', 'warn'); return; }
+  const obra={nombre:nombre, direccion:f('fo_direccion')};
+  try{
+    await conTimeout(setDoc(doc(db,'clientesInfo',fichaPartnerActual), {obrasManual:arrayUnion(obra)}, {merge:true}));
+    ['fo_nombre','fo_direccion'].forEach(function(id){ document.getElementById(id).value=''; });
+    showStatus('Obra añadida.', 'ok');
+    window.verFichaCliente();
+  }catch(err){
+    console.error(err);
+    showStatus('Error al guardar: '+err.message, 'err');
+  }
+}
+
+window.anadirComentario = async function anadirComentario(){
+  const texto=f('fc_comentario');
+  if(!texto){ showStatus('Escribe un comentario antes de guardar.', 'warn'); return; }
+  const comentario={texto:texto, fecha:hoyLocal(), comercial:(comercialActual&&comercialActual.nombre)||''};
+  try{
+    await conTimeout(setDoc(doc(db,'clientesInfo',fichaPartnerActual), {comentarios:arrayUnion(comentario)}, {merge:true}));
+    document.getElementById('fc_comentario').value='';
+    showStatus('Comentario guardado.', 'ok');
+    window.verFichaCliente();
+  }catch(err){
+    console.error(err);
+    showStatus('Error al guardar: '+err.message, 'err');
+  }
+}
+
+/* ---------- alias de módulo: las funciones de arriba se colgaron de window
+   (para que los onclick="..." del HTML las encuentren) pero eso NO las deja
+   accesibles por su nombre corto dentro del propio módulo — estos alias sí,
+   para que las llamadas internas (irA(...), guardarVisita(), etc.) funcionen ---------- */
+const irA=window.irA, volver=window.volver, irAFranjas=window.irAFranjas,
+      nuevaVisitaImprevista=window.nuevaVisitaImprevista, cancelarNuevaVisita=window.cancelarNuevaVisita,
+      usarUbicacion=window.usarUbicacion, abrirCompletar=window.abrirCompletar,
+      guardarVisita=window.guardarVisita, guardarCompletarVisita=window.guardarCompletarVisita,
+      verHistorialCliente=window.verHistorialCliente;
+
+/* ---------- init ---------- */
+(async function init(){
+  document.getElementById('nv_cliente').addEventListener('input', function(){ buscarClienteDebounced(this.value); });
+  document.getElementById('nv_partner').addEventListener('input', function(){ buscarPartnerDebounced(this.value); });
+  document.getElementById('cb_cliente').addEventListener('input', function(){
+    buscarClienteMenuDebounced(this.value);
+  });
+  document.addEventListener('click', function(e){
+    document.querySelectorAll('.autocomplete-list.open').forEach(function(list){
+      if(!list.contains(e.target) && e.target.id!==list.id.replace('_list','')) list.classList.remove('open');
+    });
+  });
+  const ft=document.getElementById('fechaPlanificador');
+  ft.value=hoyLocal();
+  try{
+    await cargarComerciales();
+  }catch(err){
+    console.error(err);
+    showStatus('No se pudieron cargar los Comerciales desde Firestore: '+err.message, 'err');
+  }
+})();
+</script>
+</body>
+</html>
