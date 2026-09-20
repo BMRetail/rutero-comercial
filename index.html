@@ -156,10 +156,26 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 
   <div id="statusBanner" class="status-banner"></div>
 
-  <!-- ===================== INICIO ===================== -->
-  <div class="screen active" id="screen-inicio">
+  <!-- ===================== BIENVENIDA: pedir PLT ===================== -->
+  <div class="screen" id="screen-bienvenida-plt">
     <div class="section">
-      <div class="section-title">Comercial</div>
+      <div class="section-title">Identifícate</div>
+      <div class="field">
+        <label class="required">Tu código PLT</label>
+        <input type="text" id="bv_plt" placeholder="Ej. PLT001724" autocomplete="off" onkeydown="if(event.key==='Enter') continuarBienvenidaPLT()">
+        <div class="hint" id="bv_plt_error" style="color:var(--bm-red)"></div>
+      </div>
+    </div>
+    <div class="submit-bar">
+      <button class="submit-btn" onclick="continuarBienvenidaPLT()">Continuar</button>
+      <button class="secondary-btn" onclick="irA('bienvenida-lista')">O busca tu nombre en la lista</button>
+    </div>
+  </div>
+
+  <!-- ===================== BIENVENIDA: lista clásica (alternativa) ===================== -->
+  <div class="screen" id="screen-bienvenida-lista">
+    <div class="section">
+      <div class="section-title">Elige tu nombre</div>
       <div class="field">
         <label class="required">¿Quién eres?</label>
         <select id="comercial" required>
@@ -167,14 +183,56 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
         </select>
       </div>
     </div>
+    <div class="submit-bar">
+      <button class="submit-btn" onclick="continuarBienvenidaLista()">Continuar</button>
+    </div>
+  </div>
+
+  <!-- ===================== BIENVENIDA: confirmar identidad ===================== -->
+  <div class="screen" id="screen-bienvenida-confirmar">
     <div class="section">
-      <button class="menu-btn" onclick="irA('fecha')"><span class="ico">📅</span> Planificador Semanal</button>
-      <button class="menu-btn" onclick="irA('rutero')"><span class="ico">📋</span> Rutero — Registro de Visitas</button>
-      <button class="menu-btn" onclick="irA('agenda')"><span class="ico">🗓️</span> Ver mi Agenda</button>
-      <button class="menu-btn" onclick="irA('clientes')"><span class="ico">📇</span> Clientes</button>
+      <div class="section-title">¡Hola!</div>
+      <div style="text-align:center;padding:10px 0 20px">
+        <div id="bv_nombre_confirmar" style="font-size:20px;font-weight:700;color:var(--bm-blue);margin-bottom:6px"></div>
+        <div style="font-size:14px;color:#667">¿Eres tú?</div>
+      </div>
+      <label class="radio-btn" style="width:100%;justify-content:flex-start;gap:10px;padding:12px 14px">
+        <input type="checkbox" id="bv_recordar" checked style="width:18px;height:18px">
+        <span style="font-weight:500">Recordar en este dispositivo</span>
+      </label>
+      <div class="hint" style="margin-top:8px">La próxima vez que abras la app en este móvil/tablet, entrarás directo sin tener que confirmar nada.</div>
+    </div>
+    <div class="submit-bar">
+      <button class="submit-btn" onclick="confirmarBienvenida(true)">Sí, soy yo</button>
+      <button class="secondary-btn" onclick="confirmarBienvenida(false)">No, soy otro</button>
+    </div>
+  </div>
+
+  <!-- ===================== INICIO ===================== -->
+  <div class="screen" id="screen-inicio">
+    <div class="section">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-size:11px;color:#667">Conectado como</div>
+          <div id="inicioNombreConectado" style="font-size:15px;font-weight:700;color:var(--bm-blue)"></div>
+        </div>
+        <span style="font-size:12px;font-weight:600;color:var(--bm-blue-mid);cursor:pointer" onclick="cambiarComercial()">Cambiar ⟳</span>
+      </div>
+    </div>
+    <div class="section" id="inicioSupervisionSection" style="display:none">
+      <button class="menu-btn" onclick="irA('supervision')"><span class="ico">📊</span> Supervisión del equipo</button>
     </div>
     <div class="section">
-      <button class="menu-btn" onclick="irA('supervision')"><span class="ico">📊</span> Supervisión del equipo</button>
+      <div class="section-title" id="inicioHerramientasToggle" style="margin-bottom:0;display:none" onclick="toggleHerramientasComercial()">
+        Herramientas de comercial
+        <span id="inicioHerramientasChevron" style="margin-left:auto;font-size:11px">▸</span>
+      </div>
+      <div id="inicioHerramientasBody">
+        <button class="menu-btn" onclick="irA('fecha')"><span class="ico">📅</span> Planificador Semanal</button>
+        <button class="menu-btn" onclick="irA('rutero')"><span class="ico">📋</span> Rutero — Registro de Visitas</button>
+        <button class="menu-btn" onclick="irA('agenda')"><span class="ico">🗓️</span> Ver mi Agenda</button>
+        <button class="menu-btn" onclick="irA('clientes')"><span class="ico">📇</span> Clientes</button>
+      </div>
     </div>
   </div>
 
@@ -526,7 +584,11 @@ const auth = getAuth(app);
 
 const FRANJAS = ['08:00-09:00','09:00-10:00','10:00-11:00','11:00-12:00','12:00-13:00','13:00-14:00','15:00-16:00','16:00-17:00','17:00-18:00'];
 
-let comercialActual = null;   // {id, nombre}
+let comercialActual = null;   // {id, nombre, esSupervisor}
+let comercialesPorId = {};    // {id: {nombre, esSupervisor, activo}}
+let identidadPendiente = null; // {id, nombre} mientras se confirma en la bienvenida
+const LS_PLT = 'rutero_plt';
+const LS_RECORDAR = 'rutero_recordar';
 let fechaSeleccionada = '';
 let franjaSeleccionada = '';
 let esVisitaImprevista = false;
@@ -567,6 +629,9 @@ function conTimeout(promesa, ms=15000){
 /* ---------- navegación entre pantallas ---------- */
 const TITULOS = {
   inicio: ['Rutero Comercial','BigMat · planificación y visitas'],
+  'bienvenida-plt': ['Rutero Comercial','Identifícate'],
+  'bienvenida-lista': ['Rutero Comercial','Elige tu nombre'],
+  'bienvenida-confirmar': ['Rutero Comercial','¿Eres tú?'],
   fecha: ['Planificador Semanal','Elige el día a planificar'],
   franjas: ['Franjas horarias','Toca una franja libre'],
   'nueva-visita': ['Nueva visita','Datos de la visita'],
@@ -588,8 +653,9 @@ window.irA = function irA(pantalla, guardarHistorial=true){
   const t=TITULOS[pantalla]||['Rutero Comercial',''];
   document.getElementById('headerTitle').textContent=t[0];
   document.getElementById('headerSub').textContent=t[1];
-  document.getElementById('btnBack').style.display = pantalla==='inicio' ? 'none' : '';
-  document.getElementById('btnHome').style.display = pantalla==='inicio' ? 'none' : '';
+  const sinCabecera = pantalla==='inicio' || pantalla==='bienvenida-plt' || pantalla==='bienvenida-lista' || pantalla==='bienvenida-confirmar';
+  document.getElementById('btnBack').style.display = sinCabecera ? 'none' : '';
+  document.getElementById('btnHome').style.display = sinCabecera ? 'none' : '';
   hideStatus();
   window.scrollTo({top:0});
   if(pantalla==='rutero') cargarRutero();
@@ -621,13 +687,97 @@ async function cargarComerciales(){
   const sel=document.getElementById('comercial');
   const snap=await getDocs(collection(db,'comerciales'));
   const opts=[];
-  snap.forEach(function(d){ const c=d.data(); if(c.activo===false) return; opts.push({id:d.id,nombre:c.nombre||d.id}); });
+  snap.forEach(function(d){
+    const c=d.data();
+    comercialesPorId[d.id]={nombre:c.nombre||d.id, esSupervisor:!!c.esSupervisor, activo:c.activo!==false};
+    if(c.activo===false) return;
+    opts.push({id:d.id,nombre:c.nombre||d.id});
+  });
   opts.sort((a,b)=>a.nombre.localeCompare(b.nombre));
   opts.forEach(function(o){ const opt=document.createElement('option'); opt.value=o.id; opt.textContent=o.nombre; sel.appendChild(opt); });
   sel.addEventListener('change', function(){
     const opt=sel.options[sel.selectedIndex];
-    comercialActual = sel.value ? {id:sel.value, nombre:opt.textContent} : null;
+    comercialActual = sel.value ? {id:sel.value, nombre:opt.textContent, esSupervisor:!!(comercialesPorId[sel.value]||{}).esSupervisor} : null;
   });
+}
+
+/* ---------- bienvenida / identificación ---------- */
+window.continuarBienvenidaPLT = function continuarBienvenidaPLT(){
+  const plt=f('bv_plt').toUpperCase();
+  const errorEl=document.getElementById('bv_plt_error');
+  if(!plt){ errorEl.textContent='Escribe tu código PLT.'; return; }
+  const info=comercialesPorId[plt];
+  if(!info || info.activo===false){
+    errorEl.textContent='No encontramos ese código. Revisa que esté bien escrito o busca tu nombre en la lista.';
+    return;
+  }
+  errorEl.textContent='';
+  identidadPendiente={id:plt, nombre:info.nombre, esSupervisor:info.esSupervisor};
+  mostrarConfirmacion();
+}
+window.continuarBienvenidaLista = function continuarBienvenidaLista(){
+  const sel=document.getElementById('comercial');
+  if(!sel.value){ showStatus('Elige tu nombre antes de continuar.', 'warn'); return; }
+  const info=comercialesPorId[sel.value];
+  identidadPendiente={id:sel.value, nombre:info.nombre, esSupervisor:info.esSupervisor};
+  mostrarConfirmacion();
+}
+function mostrarConfirmacion(){
+  document.getElementById('bv_nombre_confirmar').textContent=identidadPendiente.nombre;
+  document.getElementById('bv_recordar').checked=true;
+  irA('bienvenida-confirmar');
+}
+window.confirmarBienvenida = function confirmarBienvenida(esSi){
+  if(!esSi){
+    identidadPendiente=null;
+    irA('bienvenida-plt');
+    return;
+  }
+  comercialActual={id:identidadPendiente.id, nombre:identidadPendiente.nombre, esSupervisor:identidadPendiente.esSupervisor};
+  if(document.getElementById('bv_recordar').checked){
+    localStorage.setItem(LS_PLT, comercialActual.id);
+    localStorage.setItem(LS_RECORDAR, '1');
+  }
+  identidadPendiente=null;
+  mostrarInicioConectado();
+}
+window.cambiarComercial = function cambiarComercial(){
+  localStorage.removeItem(LS_PLT);
+  localStorage.removeItem(LS_RECORDAR);
+  comercialActual=null;
+  document.getElementById('bv_plt').value='';
+  document.getElementById('bv_plt_error').textContent='';
+  historialPantallas.length=0;
+  irA('bienvenida-plt', false);
+}
+function mostrarInicioConectado(){
+  document.getElementById('inicioNombreConectado').textContent=comercialActual.nombre;
+  const esSuper=!!comercialActual.esSupervisor;
+  document.getElementById('inicioSupervisionSection').style.display=esSuper ? '' : 'none';
+  const titulo=document.getElementById('inicioHerramientasToggle');
+  const cuerpo=document.getElementById('inicioHerramientasBody');
+  const chevron=document.getElementById('inicioHerramientasChevron');
+  if(esSuper){
+    titulo.style.display='';
+    titulo.style.cursor='pointer';
+    chevron.textContent='▸';
+    cuerpo.style.display='none';
+    cuerpo.style.marginTop='0';
+  }else{
+    titulo.style.display='none';
+    cuerpo.style.display='';
+    cuerpo.style.marginTop='0';
+  }
+  irA('inicio', false);
+}
+window.toggleHerramientasComercial=function toggleHerramientasComercial(){
+  if(!comercialActual || !comercialActual.esSupervisor) return;
+  const cuerpo=document.getElementById('inicioHerramientasBody');
+  const chevron=document.getElementById('inicioHerramientasChevron');
+  const abierto=cuerpo.style.display!=='none';
+  cuerpo.style.display=abierto?'none':'';
+  cuerpo.style.marginTop=abierto?'0':'12px';
+  chevron.textContent=abierto?'▸':'▾';
 }
 
 /* ---------- autocompletado Cliente <-> Partner (mismo patrón que Pedidos de Venta) ---------- */
@@ -1834,6 +1984,16 @@ const irA=window.irA, volver=window.volver, irAFranjas=window.irAFranjas,
   }catch(err){
     console.error(err);
     showStatus('No se pudieron cargar los Comerciales desde Firestore: '+err.message, 'err');
+  }
+
+  const pltGuardado=localStorage.getItem(LS_PLT);
+  const recordar=localStorage.getItem(LS_RECORDAR)==='1';
+  const info=pltGuardado ? comercialesPorId[pltGuardado] : null;
+  if(pltGuardado && recordar && info && info.activo!==false){
+    comercialActual={id:pltGuardado, nombre:info.nombre, esSupervisor:info.esSupervisor};
+    mostrarInicioConectado();
+  }else{
+    irA('bienvenida-plt', false);
   }
 })();
 </script>
