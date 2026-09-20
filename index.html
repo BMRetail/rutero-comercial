@@ -127,6 +127,16 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 
 .empty-state{text-align:center;padding:40px 20px;color:#8a8fa3;font-size:14px}
 
+.info-icon{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;background:var(--bm-blue-light);color:var(--bm-blue);font-size:11px;font-weight:700;font-style:italic;cursor:pointer;margin-left:5px;flex-shrink:0}
+.info-modal-overlay{display:none;position:fixed;inset:0;background:rgba(20,30,50,.5);z-index:200;align-items:center;justify-content:center;padding:20px}
+.info-modal-overlay.abierto{display:flex}
+.info-modal-card{background:#fff;border-radius:14px;padding:20px;max-width:420px;max-height:80vh;overflow-y:auto;box-shadow:0 10px 30px rgba(0,0,0,.2)}
+.info-modal-card h3{margin:0 0 10px;color:var(--bm-blue);font-size:16px}
+.info-modal-card table{width:100%;border-collapse:collapse;font-size:12px;margin:10px 0}
+.info-modal-card th{text-align:left;color:#667;font-weight:600;padding:6px 4px;border-bottom:1.5px solid var(--bm-blue-light)}
+.info-modal-card td{padding:6px 4px;border-bottom:1px solid #eef2f8;vertical-align:top}
+.info-modal-card .cerrar-btn{margin-top:12px;width:100%;padding:10px;border:none;border-radius:8px;background:var(--bm-blue-light);color:var(--bm-blue);font-weight:600;cursor:pointer}
+
 .radio-group{display:flex;gap:10px}
 .radio-btn{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;border:1.5px solid var(--bm-blue-mid);border-radius:8px;padding:14px 10px;cursor:pointer;background:#fff;transition:background-color .15s,border-color .15s}
 .radio-btn input{width:auto;padding:0;pointer-events:none}
@@ -549,6 +559,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
   <div class="screen" id="screen-supervision">
     <div class="section">
       <div id="supervisionCategoriaSelector" style="margin-bottom:10px"></div>
+      <div id="supervisionResumen"></div>
       <div class="section-title" id="supervisionRangoLabel" style="margin-bottom:10px">Semana</div>
       <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:10px;font-size:10px;color:#667">
         <span><i style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--bm-red);margin-right:3px"></i>Sin planificar</span>
@@ -592,6 +603,11 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
     </div>
   </div>
 
+</div>
+
+<!-- ===================== MODAL DE AYUDA (KPIs) ===================== -->
+<div class="info-modal-overlay" id="infoModalOverlay" onclick="if(event.target===this) cerrarInfoModal()">
+  <div class="info-modal-card" id="infoModalCard"></div>
 </div>
 
 <script type="module">
@@ -638,6 +654,7 @@ let fichaPartnerActual = '';
 let supervisionPeriodo = 'semana';
 let supervisionComercialDetalle = null;
 let supervisionCategoria = null;
+let resumenEquipoActual = null; // {cumplimiento, tasaConversion, categoria} de la semana actual, para comparar en el detalle de comercial
 let obrasClienteActual = [];  // [{nombreObra, direccionObra}] del cliente elegido en Nueva Visita
 let franjaProximaSeleccionada = '';  // franja elegida para la próxima acción (Completar Visita)
 let agendaVista = 'semana';  // 'dia' | 'semana' | 'mes'
@@ -656,6 +673,26 @@ function hoyLocal(){ return formatearFechaISO(new Date()); }
 function f(id){ const el=document.getElementById(id); return el?el.value.trim():''; }
 function getRadio(name){ const els=document.querySelectorAll('input[name="'+name+'"]:checked'); return els.length?els[0].value:''; }
 function showStatus(msg,tipo){ const b=document.getElementById('statusBanner'); b.textContent=msg; b.className='status-banner show '+tipo; window.scrollTo({top:0,behavior:'smooth'}); }
+
+window.mostrarInfoModal=function mostrarInfoModal(html){
+  document.getElementById('infoModalCard').innerHTML=html+'<button type="button" class="cerrar-btn" onclick="cerrarInfoModal()">Entendido</button>';
+  document.getElementById('infoModalOverlay').classList.add('abierto');
+}
+window.cerrarInfoModal=function cerrarInfoModal(){
+  document.getElementById('infoModalOverlay').classList.remove('abierto');
+}
+window.INFO_KPI_CUMPLIMIENTO_CONVERSION=
+  '<h3>Cumplimiento de Agenda vs. Tasa de Conversión</h3>'+
+  '<table><tr><th></th><th>Cumplimiento de Agenda</th><th>Tasa de Conversión</th></tr>'+
+  '<tr><td style="color:#667">Responde a</td><td>¿Se presentó a las citas planificadas?</td><td>De las citas a las que fue, ¿cuántas cerró en pedido?</td></tr>'+
+  '<tr><td style="color:#667">Mide</td><td>Disciplina / gestión del tiempo</td><td>Habilidad comercial</td></tr>'+
+  '<tr><td style="color:#667">Se mejora con</td><td>Organización y constancia</td><td>Formación en venta, argumentario</td></tr></table>'+
+  '<div style="font-size:12px;color:#333;line-height:1.5;background:#F5F8FC;border-radius:8px;padding:10px;margin-top:6px">'+
+    '<b>Alto cumplimiento + alta conversión</b> → referencia del equipo.<br>'+
+    '<b>Alto cumplimiento + baja conversión</b> → va a todas sus citas pero no cierra: necesita formación comercial.<br>'+
+    '<b>Bajo cumplimiento + alta conversión</b> → cuando va, cierra bien, pero le falta constancia.<br>'+
+    '<b>Bajo cumplimiento + baja conversión</b> → alerta seria, requiere intervención.'+
+  '</div>';
 function hideStatus(){ document.getElementById('statusBanner').classList.remove('show'); }
 function debounce(fn,ms){ let t; return function(...args){ clearTimeout(t); t=setTimeout(()=>fn.apply(null,args),ms); }; }
 function conTimeout(promesa, ms=15000){
@@ -1592,7 +1629,7 @@ async function cargarSupervision(){
     const c=d.data();
     if(c.activo===false || !c.categoria) return;
     categorias.add(c.categoria);
-    comercialesPorCategoria[d.id]={id:d.id, nombre:c.nombre||d.id, categoria:c.categoria, planificadas:0, realizadas:0, otras:0};
+    comercialesPorCategoria[d.id]={id:d.id, nombre:c.nombre||d.id, categoria:c.categoria, planificadas:0, realizadas:0, pospuestas:0, canceladas:0, pedidosCerrados:0, importeGenerado:0};
   });
   if(!supervisionCategoria || !categorias.has(supervisionCategoria)){
     supervisionCategoria=Array.from(categorias).sort()[0] || null;
@@ -1603,12 +1640,43 @@ async function cargarSupervision(){
     if(!e) return; // comercial sin categoria asignada: no se muestra en Supervisión
     if(v.estadoVisita==='Planificada') e.planificadas++;
     else if(v.estadoVisita==='Realizada') e.realizadas++;
-    else e.otras++;
+    else if(v.estadoVisita==='Pospuesta') e.pospuestas++;
+    else if(v.estadoVisita==='Cancelada') e.canceladas++;
+    if(v.resultadoVisita==='Pedido cerrado'){ e.pedidosCerrados++; e.importeGenerado += Number(v.importePedido)||0; }
   });
 
   pintarSelectorCategoria(Array.from(categorias).sort());
   const lista=Object.values(comercialesPorCategoria).filter(function(e){ return e.categoria===supervisionCategoria; });
+  pintarResumenEquipo(lista, label);
   pintarListaSupervision(lista);
+}
+function pintarResumenEquipo(lista, label){
+  const cont=document.getElementById('supervisionResumen');
+  if(!cont) return;
+  let planificadas=0, realizadas=0, pospuestas=0, canceladas=0, pedidosCerrados=0, importeGenerado=0;
+  lista.forEach(function(e){
+    planificadas+=e.planificadas; realizadas+=e.realizadas; pospuestas+=e.pospuestas; canceladas+=e.canceladas;
+    pedidosCerrados+=e.pedidosCerrados; importeGenerado+=e.importeGenerado;
+  });
+  const total=planificadas+realizadas+pospuestas+canceladas;
+  const tasaConversion=realizadas ? Math.round(pedidosCerrados/realizadas*100) : 0;
+  const cumplimiento=total ? Math.round(realizadas/total*100) : 0;
+  resumenEquipoActual = total ? {cumplimiento, tasaConversion, categoria: supervisionCategoria} : null;
+  if(!total){ cont.innerHTML=''; return; }
+  const kpi=function(valor, etiqueta, conInfo){
+    const icono=conInfo?' <span class="info-icon" onclick="mostrarInfoModal(INFO_KPI_CUMPLIMIENTO_CONVERSION)">i</span>':'';
+    return '<div style="flex:1;min-width:90px"><div style="font-size:20px;font-weight:700;color:var(--bm-blue)">'+valor+'</div><div style="font-size:11px;color:#667">'+etiqueta+icono+'</div></div>';
+  };
+  cont.innerHTML=
+    '<div style="background:#fff;border:1px solid var(--bm-blue-light);border-radius:12px;padding:14px;margin-bottom:10px">'+
+      '<div style="font-size:12px;color:#667;margin-bottom:10px">Resumen del equipo — '+label+'</div>'+
+      '<div style="display:flex;flex-wrap:wrap;gap:12px">'+
+        kpi(total, 'Visitas totales')+
+        kpi(cumplimiento+'%', 'Cumplimiento de agenda', true)+
+        kpi(tasaConversion+'%', 'Tasa conversión')+
+        kpi(importeGenerado.toLocaleString('es-ES',{maximumFractionDigits:0})+' €', 'Importe generado')+
+      '</div>'+
+    '</div>';
 }
 function pintarSelectorCategoria(categorias){
   const cont=document.getElementById('supervisionCategoriaSelector');
@@ -1624,14 +1692,15 @@ window.cambiarCategoriaSupervision=function cambiarCategoriaSupervision(categori
 function pintarListaSupervision(lista){
   const cont=document.getElementById('supervisionContainer');
   lista=lista.slice().sort(function(a,b){
-    const totalA=a.planificadas+a.realizadas+a.otras, totalB=b.planificadas+b.realizadas+b.otras;
+    const totalA=a.planificadas+a.realizadas+a.pospuestas+a.canceladas, totalB=b.planificadas+b.realizadas+b.pospuestas+b.canceladas;
     if((totalA===0)!==(totalB===0)) return totalA===0 ? -1 : 1;
     return a.nombre.localeCompare(b.nombre);
   });
   cont.innerHTML='';
   if(!lista.length){ cont.innerHTML='<div class="empty-state">Sin comerciales activos.</div>'; return; }
   lista.forEach(function(e){
-    const total=e.planificadas+e.realizadas+e.otras;
+    const otras=e.pospuestas+e.canceladas;
+    const total=e.planificadas+e.realizadas+otras;
     const card=document.createElement('div');
     card.className='visita-card';
     card.style.cssText='padding:12px 14px;margin-bottom:8px';
@@ -1644,7 +1713,7 @@ function pintarListaSupervision(lista){
         '<div style="display:flex;gap:14px;margin-top:6px;font-size:12px;color:#667;flex-wrap:wrap">'+
           '<span>🔵 '+e.planificadas+' pendientes</span>'+
           '<span>🟢 '+e.realizadas+' realizadas</span>'+
-          '<span>🟠 '+e.otras+' pospuestas/canceladas</span>'+
+          '<span>🟠 '+otras+' pospuestas/canceladas</span>'+
         '</div>' : '');
     card.onclick=function(){ supervisionComercialDetalle={id:e.id, nombre:e.nombre}; cargarDetalleComercial(); };
     cont.appendChild(card);
@@ -1670,19 +1739,26 @@ async function cargarDetalleComercial(){
   }
 
   const visitas=[]; visitasSnap.forEach(function(d){ visitas.push(Object.assign({id:d.id}, d.data())); });
-  let pendientes=0, realizadas=0, otras=0;
+  let pendientes=0, realizadas=0, pospuestas=0, canceladas=0, pedidosCerrados=0, importeGenerado=0;
   const clientesTocados=new Set();
   visitas.forEach(function(v){
     if(v.estadoVisita==='Planificada') pendientes++;
     else if(v.estadoVisita==='Realizada') realizadas++;
-    else otras++;
+    else if(v.estadoVisita==='Pospuesta') pospuestas++;
+    else if(v.estadoVisita==='Cancelada') canceladas++;
+    if(v.resultadoVisita==='Pedido cerrado'){ pedidosCerrados++; importeGenerado+=Number(v.importePedido)||0; }
     if(v.clientePartner) clientesTocados.add(v.clientePartner);
   });
+  const otras=pospuestas+canceladas;
   const cartera=clientesSnap.size;
   const tocados=clientesTocados.size;
   const pct=cartera ? Math.round(tocados/cartera*100) : 0;
   const total=pendientes+realizadas+otras;
+  const tasaConversion=realizadas ? Math.round(pedidosCerrados/realizadas*100) : 0;
+  const cumplimiento=total ? Math.round(realizadas/total*100) : 0;
 
+  const resumenEquipoEl=document.getElementById('supervisionResumen');
+  if(resumenEquipoEl) resumenEquipoEl.innerHTML='';
   cont.innerHTML='';
   const volver=document.createElement('div');
   volver.style.cssText='font-size:13px;font-weight:600;color:var(--bm-blue);margin-bottom:12px;cursor:pointer';
@@ -1699,6 +1775,13 @@ async function cargarDetalleComercial(){
     '<label class="radio-btn" style="padding:10px 6px"><input type="radio" name="sup_periodo" '+(supervisionPeriodo==='acum'?'checked':'')+' onchange="cambiarPeriodoSupervision(\'acum\')"><span style="font-size:13px">Acum. 2 meses</span></label>';
   cont.appendChild(selector);
 
+  if(resumenEquipoActual){
+    const ref=document.createElement('div');
+    ref.style.cssText='font-size:12px;color:#667;margin-bottom:12px;padding:8px 10px;background:#eef4fc;border-radius:8px';
+    ref.innerHTML='Equipo '+resumenEquipoActual.categoria+' esta semana: <b style="color:var(--bm-blue)">'+resumenEquipoActual.cumplimiento+'%</b> cumplimiento · <b style="color:var(--bm-blue)">'+resumenEquipoActual.tasaConversion+'%</b> conversión';
+    cont.appendChild(ref);
+  }
+
   const info=document.createElement('div');
   info.style.cssText='background:#fff;border:1px solid var(--bm-blue-light);border-radius:12px;padding:14px;margin-bottom:16px';
   info.innerHTML=
@@ -1710,10 +1793,16 @@ async function cargarDetalleComercial(){
     '<div style="background:var(--bm-blue-light);border-radius:20px;height:8px;overflow:hidden;margin-bottom:14px">'+
       '<div style="background:var(--bm-blue-mid);height:100%;width:'+pct+'%"></div>'+
     '</div>'+
+    '<div style="display:flex;flex-wrap:wrap;gap:12px;border-top:1px solid var(--bm-blue-light);padding-top:12px;margin-bottom:12px">'+
+      '<div style="flex:1;min-width:80px"><div style="font-size:18px;font-weight:700;color:var(--bm-blue)">'+cumplimiento+'%</div><div style="font-size:11px;color:#667">Cumplimiento de agenda <span class="info-icon" onclick="mostrarInfoModal(INFO_KPI_CUMPLIMIENTO_CONVERSION)">i</span></div></div>'+
+      '<div style="flex:1;min-width:80px"><div style="font-size:18px;font-weight:700;color:var(--bm-blue)">'+tasaConversion+'%</div><div style="font-size:11px;color:#667">Tasa conversión</div></div>'+
+      '<div style="flex:1;min-width:100px"><div style="font-size:18px;font-weight:700;color:var(--bm-blue)">'+importeGenerado.toLocaleString('es-ES',{maximumFractionDigits:0})+' €</div><div style="font-size:11px;color:#667">Importe generado</div></div>'+
+    '</div>'+
     '<div style="display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:#667;border-top:1px solid var(--bm-blue-light);padding-top:10px">'+
       '<span>🔵 '+pendientes+' pendientes</span>'+
       '<span>🟢 '+realizadas+' realizadas</span>'+
-      '<span>🟠 '+otras+' pospuestas/canceladas</span>'+
+      '<span>🟠 '+pospuestas+' pospuestas</span>'+
+      '<span>🔴 '+canceladas+' canceladas</span>'+
       '<span style="font-weight:700;color:#1a1a2e">'+total+' visitas en total</span>'+
     '</div>';
   cont.appendChild(info);
