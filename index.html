@@ -219,6 +219,12 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
         <span style="font-size:12px;font-weight:600;color:var(--bm-blue-mid);cursor:pointer" onclick="cambiarComercial()">Cambiar ⟳</span>
       </div>
     </div>
+    <div class="section" id="inicioAvisoPendientesSection" style="display:none">
+      <div style="background:var(--bm-amber-light);border-radius:10px;padding:12px 14px;display:flex;justify-content:space-between;align-items:center;gap:10px">
+        <span id="inicioAvisoPendientesTexto" style="font-size:13px;font-weight:600;color:var(--bm-amber)"></span>
+        <button type="button" class="secondary-btn" style="width:auto;white-space:nowrap;padding:8px 14px" onclick="irAPendientes()">Revisar</button>
+      </div>
+    </div>
     <div class="section" id="inicioSupervisionSection" style="display:none">
       <button class="menu-btn" onclick="irA('supervision')"><span class="ico">📊</span> Supervisión del equipo</button>
     </div>
@@ -508,6 +514,37 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
     </div>
   </div>
 
+  <!-- ===================== VISITAS PENDIENTES (días anteriores) ===================== -->
+  <div class="screen" id="screen-pendientes">
+    <div class="section">
+      <div class="section-title">Visitas pendientes de días anteriores</div>
+      <div class="hint">Estas visitas siguen "Planificadas" pero su fecha ya pasó. Elige qué hacer con cada una.</div>
+    </div>
+    <div class="section">
+      <div id="pendientesContainer"></div>
+    </div>
+    <div class="submit-bar">
+      <button type="button" class="secondary-btn" style="width:100%" onclick="irA('inicio')">Volver al inicio</button>
+    </div>
+  </div>
+
+  <!-- ===================== REPROGRAMAR VISITA PENDIENTE ===================== -->
+  <div class="screen" id="screen-reprogramar">
+    <div class="section">
+      <div class="section-title">Reprogramar visita</div>
+      <div id="reprogramarContexto" style="font-size:14px;color:#333;margin-bottom:10px"></div>
+      <div class="field">
+        <label class="required">Nueva fecha</label>
+        <input type="date" id="rp_fecha" oninput="mostrarFranjasReprogramar(this.value)">
+      </div>
+      <div id="rp_franjas_container"></div>
+    </div>
+    <div class="submit-bar">
+      <button class="submit-btn" onclick="confirmarReprogramacion()">Confirmar reprogramación</button>
+      <button class="secondary-btn" onclick="irA('pendientes')">Cancelar</button>
+    </div>
+  </div>
+
   <!-- ===================== SUPERVISIÓN DEL EQUIPO ===================== -->
   <div class="screen" id="screen-supervision">
     <div class="section">
@@ -587,6 +624,8 @@ const FRANJAS = ['08:00-09:00','09:00-10:00','10:00-11:00','11:00-12:00','12:00-
 let comercialActual = null;   // {id, nombre, esSupervisor}
 let comercialesPorId = {};    // {id: {nombre, esSupervisor, activo}}
 let identidadPendiente = null; // {id, nombre} mientras se confirma en la bienvenida
+let visitaAReprogramar = null;
+let franjaReprogramarSeleccionada = '';
 const LS_PLT = 'rutero_plt';
 const LS_RECORDAR = 'rutero_recordar';
 let fechaSeleccionada = '';
@@ -641,6 +680,8 @@ const TITULOS = {
   ficha: ['Ficha del cliente','Datos, contactos y notas'],
   clientes: ['Clientes','Busca cualquier cliente'],
   supervision: ['Supervisión del equipo','¿Quién ha planificado?'],
+  pendientes: ['Visitas pendientes','Cancela o reprograma'],
+  reprogramar: ['Reprogramar visita','Elige nueva fecha y franja'],
   agenda: ['Mi Agenda','Vista día / semana']
 };
 window.irA = function irA(pantalla, guardarHistorial=true){
@@ -769,6 +810,7 @@ function mostrarInicioConectado(){
     cuerpo.style.marginTop='0';
   }
   irA('inicio', false);
+  comprobarVisitasPendientes();
 }
 window.toggleHerramientasComercial=function toggleHerramientasComercial(){
   if(!comercialActual || !comercialActual.esSupervisor) return;
@@ -778,6 +820,153 @@ window.toggleHerramientasComercial=function toggleHerramientasComercial(){
   cuerpo.style.display=abierto?'none':'';
   cuerpo.style.marginTop=abierto?'0':'12px';
   chevron.textContent=abierto?'▸':'▾';
+}
+
+/* ---------- visitas pendientes de dias anteriores (planificadas, fecha ya pasada) ---------- */
+async function comprobarVisitasPendientes(){
+  const seccion=document.getElementById('inicioAvisoPendientesSection');
+  const texto=document.getElementById('inicioAvisoPendientesTexto');
+  seccion.style.display='none';
+  if(!comercialActual) return;
+  try{
+    const hoy=hoyLocal();
+    const q=query(collection(db,'visitas'), where('comercialId','==',comercialActual.id), where('estadoVisita','==','Planificada'), where('fechaVisita','<',hoy));
+    const snap=await getDocs(q);
+    if(snap.empty) return;
+    const n=snap.size;
+    texto.textContent='⚠ Tienes '+n+' visita'+(n>1?'s':'')+' pendiente'+(n>1?'s':'')+' de días anteriores';
+    seccion.style.display='';
+  }catch(err){
+    console.error(err);
+  }
+}
+window.irAPendientes=function irAPendientes(){
+  irA('pendientes');
+  cargarPendientes();
+}
+async function cargarPendientes(){
+  const cont=document.getElementById('pendientesContainer');
+  cont.innerHTML='Cargando...';
+  try{
+    const hoy=hoyLocal();
+    const q=query(collection(db,'visitas'), where('comercialId','==',comercialActual.id), where('estadoVisita','==','Planificada'), where('fechaVisita','<',hoy));
+    const snap=await getDocs(q);
+    const visitas=[];
+    snap.forEach(function(d){ visitas.push(Object.assign({id:d.id}, d.data())); });
+    visitas.sort(function(a,b){ return (a.fechaVisita||'').localeCompare(b.fechaVisita||''); });
+    cont.innerHTML='';
+    if(!visitas.length){ cont.innerHTML='<div class="empty-state">Sin visitas pendientes de días anteriores. 🎉</div>'; return; }
+    visitas.forEach(function(v){
+      const card=document.createElement('div');
+      card.className='visita-card';
+      card.style.cssText='cursor:default;margin-bottom:12px';
+      card.innerHTML=
+        '<div class="top"><span class="cliente">'+(v.clienteRazonSocial||'')+'</span><span class="fecha">'+formatFechaCorta(v.fechaVisita)+'</span></div>'+
+        '<div class="obra">'+(v.nombreObra||'')+'</div>'+
+        '<div class="row-2" style="margin-top:10px">'+
+          '<button type="button" class="secondary-btn btn-cancelar-pendiente" style="width:100%">Cancelar</button>'+
+          '<button type="button" class="submit-btn btn-reprogramar-pendiente" style="width:100%;padding:10px">Reprogramar</button>'+
+        '</div>';
+      card.querySelector('.btn-cancelar-pendiente').onclick=function(){ cancelarPendiente(v); };
+      card.querySelector('.btn-reprogramar-pendiente').onclick=function(){ abrirReprogramar(v); };
+      cont.appendChild(card);
+    });
+  }catch(err){
+    console.error(err);
+    cont.innerHTML='<div class="empty-state">Error cargando pendientes: '+err.message+'</div>';
+  }
+}
+async function cancelarPendiente(v){
+  if(!confirm('¿Cancelar la visita a '+(v.clienteRazonSocial||'')+'?')) return;
+  try{
+    await conTimeout(updateDoc(doc(db,'visitas',v.id), {estadoVisita:'Cancelada', actualizadoEn:serverTimestamp()}));
+    showStatus('Visita cancelada.', 'ok');
+    cargarPendientes();
+    comprobarVisitasPendientes();
+  }catch(err){
+    console.error(err);
+    showStatus('Error al cancelar: '+err.message, 'err');
+  }
+}
+window.abrirReprogramar=function abrirReprogramar(v){
+  visitaAReprogramar=v;
+  visitaActual=v; // reusado por mostrarFranjasReprogramar para excluir esta misma visita
+  franjaReprogramarSeleccionada='';
+  document.getElementById('reprogramarContexto').innerHTML=
+    '<strong>'+(v.clienteRazonSocial||'')+'</strong><br>'+
+    '<span style="font-size:13px;color:#667">'+(v.nombreObra||'')+' · planificada para '+formatFechaCorta(v.fechaVisita)+'</span>';
+  document.getElementById('rp_fecha').value='';
+  document.getElementById('rp_franjas_container').innerHTML='';
+  irA('reprogramar');
+}
+window.mostrarFranjasReprogramar=async function mostrarFranjasReprogramar(fecha){
+  franjaReprogramarSeleccionada='';
+  const cont=document.getElementById('rp_franjas_container');
+  if(!fecha){ cont.innerHTML=''; return; }
+  cont.innerHTML='<div class="hint">Consultando franjas disponibles...</div>';
+  let snap;
+  try{
+    const q=query(collection(db,'visitas'), where('comercialId','==',comercialActual.id), where('fechaVisita','==',fecha));
+    snap=await getDocs(q);
+  }catch(err){
+    console.error(err);
+    cont.innerHTML='';
+    return;
+  }
+  const ocupadas={};
+  snap.forEach(function(d){
+    const v=d.data();
+    if(v.franjaHoraria && d.id!==visitaAReprogramar.id && !['Cancelada','Pospuesta'].includes(v.estadoVisita)) ocupadas[v.franjaHoraria]=v.clienteRazonSocial||'Reservada';
+  });
+  cont.innerHTML='<label style="font-size:12px;color:var(--bm-blue);font-weight:600">Franjas disponibles para '+fecha.split('-').reverse().join('/')+'</label>';
+  const lista=document.createElement('div');
+  lista.style.marginTop='6px';
+  FRANJAS.forEach(function(franja){
+    const ocupada=ocupadas[franja];
+    const row=document.createElement('div');
+    row.className='franja-row '+(ocupada?'reservada':'libre');
+    row.style.marginBottom='6px';
+    row.innerHTML='<span class="hora">'+franja+'</span><span class="estado">'+(ocupada?ocupada:'Libre')+'</span>';
+    if(!ocupada){
+      row.onclick=function(){
+        franjaReprogramarSeleccionada=franja;
+        lista.querySelectorAll('.franja-row').forEach(r=>r.classList.remove('seleccionada'));
+        row.classList.add('seleccionada');
+      };
+    }
+    lista.appendChild(row);
+  });
+  cont.appendChild(lista);
+}
+window.confirmarReprogramacion=async function confirmarReprogramacion(){
+  const nuevaFecha=f('rp_fecha');
+  if(!nuevaFecha){ showStatus('Elige la nueva fecha antes de confirmar.', 'warn'); return; }
+  const v=visitaAReprogramar;
+  try{
+    await conTimeout(updateDoc(doc(db,'visitas',v.id), {estadoVisita:'Pospuesta', actualizadoEn:serverTimestamp()}));
+    await conTimeout(addDoc(collection(db,'visitas'), {
+      comercialId:v.comercialId, comercialNombre:v.comercialNombre,
+      clientePartner:v.clientePartner, clienteRazonSocial:v.clienteRazonSocial,
+      nombreObra:v.nombreObra,
+      fechaVisita:nuevaFecha, franjaHoraria:franjaReprogramarSeleccionada,
+      motivoVisita:v.motivoVisita||'', prioridad:v.prioridad||'',
+      direccionObra:v.direccionObra||'', ubicacionMaps:v.ubicacionMaps||'',
+      estadoVisita:'Planificada',
+      fechaRealizada:null, resultadoVisita:'', importePedido:null,
+      proximaAccion:'', fechaProximaAccion:null,
+      tipoVisita:'', obraActiva:null, faseObra:'', volumenObra:'', necesidadDetectada:'',
+      comentarios:'',
+      creadoEn:serverTimestamp(), actualizadoEn:serverTimestamp()
+    }));
+    showStatus('Visita reprogramada correctamente.', 'ok');
+    visitaAReprogramar=null;
+    irA('pendientes', false);
+    cargarPendientes();
+    comprobarVisitasPendientes();
+  }catch(err){
+    console.error(err);
+    showStatus('Error al reprogramar: '+err.message, 'err');
+  }
 }
 
 /* ---------- autocompletado Cliente <-> Partner (mismo patrón que Pedidos de Venta) ---------- */
@@ -1015,6 +1204,20 @@ window.guardarVisita = async function guardarVisita(){
   } else {
     partner=f('nv_partner'); cliente=f('nv_cliente');
     if(!partner || !cliente){ showStatus('Elige un cliente (Cliente y Partner son obligatorios).', 'warn'); return; }
+    document.getElementById('nv_partner').classList.remove('error');
+    let clienteExiste;
+    try{
+      clienteExiste=(await getDoc(doc(db,'clientes',partner))).exists();
+    }catch(err){
+      console.error(err);
+      showStatus('No se pudo comprobar el cliente. Revisa tu conexión e inténtalo de nuevo.', 'err');
+      return;
+    }
+    if(!clienteExiste){
+      document.getElementById('nv_partner').classList.add('error');
+      showStatus('Ese código de cliente no existe en nuestra base. Usa "Cliente nuevo" o revisa el código escrito.', 'err');
+      return;
+    }
   }
   const btn=document.getElementById('btnGuardarVisita');
   const textoOriginalBtn=btn.textContent;
@@ -1968,7 +2171,7 @@ const irA=window.irA, volver=window.volver, irAFranjas=window.irAFranjas,
     return;
   }
   document.getElementById('nv_cliente').addEventListener('input', function(){ buscarClienteDebounced(this.value); });
-  document.getElementById('nv_partner').addEventListener('input', function(){ buscarPartnerDebounced(this.value); });
+  document.getElementById('nv_partner').addEventListener('input', function(){ this.classList.remove('error'); buscarPartnerDebounced(this.value); });
   document.getElementById('cb_cliente').addEventListener('input', function(){
     buscarClienteMenuDebounced(this.value);
   });
