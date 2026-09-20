@@ -518,9 +518,11 @@ import {
   getFirestore, collection, doc, getDoc, getDocs, addDoc, updateDoc, setDoc, arrayUnion,
   query, where, orderBy, startAt, endAt, limit, serverTimestamp
 } from 'https://cdn.jsdelivr.net/npm/firebase@10.12.0/firestore/+esm';
+import { getAuth, signInAnonymously } from 'https://cdn.jsdelivr.net/npm/firebase@10.12.0/auth/+esm';
 
 const app = initializeApp(FIREBASE_CONFIG);
 const db = getFirestore(app);
+const auth = getAuth(app);
 
 const FRANJAS = ['08:00-09:00','09:00-10:00','10:00-11:00','11:00-12:00','12:00-13:00','13:00-14:00','15:00-16:00','16:00-17:00','17:00-18:00'];
 
@@ -1808,6 +1810,13 @@ const irA=window.irA, volver=window.volver, irAFranjas=window.irAFranjas,
 
 /* ---------- init ---------- */
 (async function init(){
+  try{
+    await signInAnonymously(auth);
+  }catch(err){
+    console.error(err);
+    showStatus('No se pudo conectar con el servidor. Recarga la página.', 'err');
+    return;
+  }
   document.getElementById('nv_cliente').addEventListener('input', function(){ buscarClienteDebounced(this.value); });
   document.getElementById('nv_partner').addEventListener('input', function(){ buscarPartnerDebounced(this.value); });
   document.getElementById('cb_cliente').addEventListener('input', function(){
