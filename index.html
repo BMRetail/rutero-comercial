@@ -325,9 +325,10 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
           <div class="autocomplete-list" id="nv_obra_list"></div>
           <div class="hint" id="nv_obra_hint"></div>
         </div>
-        <div class="field">
+        <div class="field" style="position:relative">
           <label>Dirección de la obra</label>
-          <input type="text" id="nv_direccion" placeholder="Calle, número...">
+          <input type="text" id="nv_direccion" placeholder="Calle, número..." autocomplete="off" oninput="buscarDireccionDebounced(this.value)">
+          <div class="autocomplete-list" id="nv_direccion_list"></div>
         </div>
         <button type="button" class="secondary-btn" onclick="usarUbicacion()">📍 Usar mi ubicación</button>
         <div class="hint" id="nv_ubicacion_hint"></div>
@@ -623,6 +624,10 @@ const FIREBASE_CONFIG = {
   messagingSenderId: "136604898443",
   appId: "1:136604898443:web:77ef9c2b70d8637d79f08e"
 };
+// Token publico de Mapbox (cuenta bmretail) -- autocompletado de direcciones
+// y calculo de rutas. No es secreto (pensado para usarse en cliente), pero
+// restringido a los dominios de esta app en el panel de Mapbox.
+const MAPBOX_TOKEN = "pk.eyJ1IjoiYm1yZXRhaWwiLCJhIjoiY211YjFvbW1tMWJ4aDJ5cjE0d3M0ZTV2NCJ9.ZC9b06f_P9XfNzvP1Whi9A";
 
 import { initializeApp } from 'https://cdn.jsdelivr.net/npm/firebase@10.12.0/app/+esm';
 import {
@@ -649,6 +654,7 @@ let franjaSeleccionada = '';
 let esVisitaImprevista = false;
 let visitaActual = null;      // {id, ...datos} para completar
 let ubicacionTexto = '';
+let obraLat = null, obraLon = null; // coordenadas de la obra (por direccion elegida o GPS) -- usadas por la optimizacion de ruta
 let historialPantallas = [];
 let fichaPartnerActual = '';
 let supervisionPeriodo = 'semana';
@@ -1019,6 +1025,26 @@ function renderAutocomplete(listEl, items, onPick){
   });
   listEl.classList.add('open');
 }
+async function buscarDireccion(term){
+  const listEl=document.getElementById('nv_direccion_list');
+  if(!term || term.length<4){ listEl.classList.remove('open'); return; }
+  let data;
+  try{
+    const url='https://api.mapbox.com/geocoding/v5/mapbox.places/'+encodeURIComponent(term)+'.json'
+      +'?access_token='+MAPBOX_TOKEN+'&country=es&language=es&limit=5&types=address';
+    const resp=await fetch(url);
+    data=await resp.json();
+  }catch(err){ console.error(err); return; }
+  const items=(data.features||[]).map(function(f){
+    return {mainText:f.place_name, lat:f.center[1], lon:f.center[0]};
+  });
+  renderAutocomplete(listEl, items, seleccionarDireccion);
+}
+window.buscarDireccionDebounced=debounce(buscarDireccion,400);
+function seleccionarDireccion(it){
+  document.getElementById('nv_direccion').value=it.mainText;
+  obraLat=it.lat; obraLon=it.lon;
+}
 async function buscarClientePorNombre(term){
   const listEl=document.getElementById('nv_cliente_list');
   if(!term){ listEl.classList.remove('open'); return; }
@@ -1199,6 +1225,7 @@ function limpiarNuevaVisita(){
   document.getElementById('nv_tipo_existente').checked=true;
   mostrarBloqueCliente('existente');
   ubicacionTexto='';
+  obraLat=null; obraLon=null;
   obrasClienteActual=[];
 }
 function abrirNuevaVisita(){
@@ -1221,6 +1248,7 @@ window.usarUbicacion = function usarUbicacion(){
   if(!navigator.geolocation){ showStatus('Este dispositivo no permite geolocalización.', 'warn'); return; }
   navigator.geolocation.getCurrentPosition(function(pos){
     ubicacionTexto='https://www.google.com/maps?q='+pos.coords.latitude+','+pos.coords.longitude;
+    obraLat=pos.coords.latitude; obraLon=pos.coords.longitude;
     document.getElementById('nv_ubicacion_hint').textContent='📍 Ubicación capturada: '+ubicacionTexto;
   }, function(){
     showStatus('No se pudo obtener la ubicación.', 'warn');
@@ -1268,6 +1296,7 @@ window.guardarVisita = async function guardarVisita(){
       franjaHoraria: esVisitaImprevista ? '' : franjaSeleccionada,
       motivoVisita:f('nv_motivo'), prioridad:f('nv_prioridad'),
       direccionObra:f('nv_direccion'), ubicacionMaps:ubicacionTexto,
+      obraLat:obraLat, obraLon:obraLon,
       estadoVisita: esVisitaImprevista ? 'Imprevista' : 'Planificada',
       fechaRealizada:null, resultadoVisita:'', importePedido:null,
       proximaAccion:'', fechaProximaAccion:null,
@@ -1454,11 +1483,98 @@ async function cargarAgenda(){
     renderizarMiniCalendarioMes(cont, visitas, inicio, fin);
     return;
   }
-  if(visitas.length===0){ cont.innerHTML='<div class="empty-state">Sin visitas en este periodo.</div>'; return; }
+  if(agendaVista==='semana'){
+    const hoy=hoyLocal();
+    if(hoy>=inicio && hoy<=fin) pintarSugerenciaRuta(cont, visitas.filter(function(v){ return v.fechaVisita===hoy; }));
+  }
+  if(visitas.length===0){ cont.innerHTML+='<div class="empty-state">Sin visitas en este periodo.</div>'; return; }
   if(agendaVista==='dia'){
     visitas.forEach(function(v){ cont.appendChild(crearVisitaCard(v)); });
   } else {
     renderizarCuadriculaSemana(cont, visitas, inicio);
+  }
+}
+/* ---------- sugerencia de ruta optimizada (visitas de hoy) ---------- */
+function distanciaKm(lat1,lon1,lat2,lon2){
+  const R=6371, toRad=function(d){ return d*Math.PI/180; };
+  const dLat=toRad(lat2-lat1), dLon=toRad(lon2-lon1);
+  const a=Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2;
+  return R*2*Math.asin(Math.sqrt(a));
+}
+function distanciaTotal(lista){
+  let total=0;
+  for(let i=0;i<lista.length-1;i++){ total+=distanciaKm(lista[i].obraLat,lista[i].obraLon,lista[i+1].obraLat,lista[i+1].obraLon); }
+  return total;
+}
+function calcularOrdenOptimo(visitas){
+  const restantes=visitas.slice();
+  const orden=[restantes.shift()]; // empieza por la primera de su orden actual (cronologico)
+  while(restantes.length){
+    const ultima=orden[orden.length-1];
+    let idxMasCercana=0, distMin=Infinity;
+    restantes.forEach(function(v,i){
+      const d=distanciaKm(ultima.obraLat,ultima.obraLon,v.obraLat,v.obraLon);
+      if(d<distMin){ distMin=d; idxMasCercana=i; }
+    });
+    orden.push(restantes.splice(idxMasCercana,1)[0]);
+  }
+  return orden;
+}
+function pintarSugerenciaRuta(cont, visitasHoy){
+  const conCoordenadas=visitasHoy.filter(function(v){ return v.estadoVisita==='Planificada' && v.obraLat!=null && v.obraLon!=null; });
+  if(conCoordenadas.length<2) return;
+  conCoordenadas.sort(function(a,b){ return (a.franjaHoraria||'99:99').localeCompare(b.franjaHoraria||'99:99'); });
+  const ordenActual=distanciaTotal(conCoordenadas);
+  const ordenSugerido=calcularOrdenOptimo(conCoordenadas);
+  const ordenNuevo=distanciaTotal(ordenSugerido);
+  const ahorro=ordenActual-ordenNuevo;
+  if(ahorro < ordenActual*0.15 || ahorro<0.5) return; // no molestar si el ahorro es minimo
+  const franjasOriginales=conCoordenadas.map(function(v){ return v.franjaHoraria; });
+  const minutosAhorro=Math.round(ahorro/30*60); // aprox., ~30km/h en ciudad
+
+  const box=document.createElement('div');
+  box.style.cssText='background:#fff;border:1.5px solid var(--bm-amber);border-radius:12px;padding:12px 16px;margin-bottom:16px';
+  let filas='';
+  ordenSugerido.forEach(function(v,i){
+    filas+='<div style="display:flex;padding:10px 0;'+(i<ordenSugerido.length-1?'border-bottom:1px solid #eef2f8':'')+';align-items:center;gap:10px">'+
+      '<span style="background:var(--bm-blue);color:#fff;width:20px;height:20px;border-radius:50%;font-size:11px;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0">'+(i+1)+'</span>'+
+      '<div><div style="font-size:13px;font-weight:600">'+(v.clienteRazonSocial||'')+'</div>'+
+      '<div style="font-size:11px;color:#667">'+(franjasOriginales[i]||'')+' · '+(v.direccionObra||'')+'</div></div></div>';
+  });
+  box.innerHTML=
+    '<div id="sugerenciaRutaCabecera" style="display:flex;align-items:center;gap:8px;cursor:pointer">'+
+      '<span style="font-size:18px">📍</span>'+
+      '<span style="font-weight:700;color:var(--bm-blue);font-size:14px;flex:1">Sugerencia de ruta para hoy</span>'+
+      '<span style="background:var(--bm-amber);color:#fff;font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px">~'+minutosAhorro+' min</span>'+
+      '<span id="sugerenciaRutaChevron" style="color:var(--bm-blue);font-size:13px">▸</span>'+
+    '</div>'+
+    '<div style="font-size:12px;color:#667;margin-top:8px">Reordenando tus '+ordenSugerido.length+' visitas planificadas de hoy por cercanía, ahorrarías ~'+minutosAhorro+' min de desplazamiento.</div>'+
+    '<div id="sugerenciaRutaBody" style="display:none;margin-top:12px">'+
+    '<div style="border:1px solid #eef2f8;border-radius:8px;overflow:hidden;margin-bottom:14px;padding:0 12px">'+filas+'</div>'+
+    '<div style="display:flex;gap:10px"><button type="button" class="submit-btn" style="flex:1;padding:10px" id="btnAplicarRuta">Aplicar este orden</button>'+
+    '<button type="button" class="secondary-btn" style="flex:1;padding:10px" id="btnDescartarRuta">No, gracias</button></div>'+
+    '</div>';
+  cont.appendChild(box);
+  document.getElementById('sugerenciaRutaCabecera').onclick=function(){
+    const body=document.getElementById('sugerenciaRutaBody');
+    const chevron=document.getElementById('sugerenciaRutaChevron');
+    const abierto=body.style.display!=='none';
+    body.style.display=abierto?'none':'';
+    chevron.textContent=abierto?'▸':'▾';
+  };
+  document.getElementById('btnAplicarRuta').onclick=function(){ aplicarOrdenRuta(ordenSugerido, franjasOriginales); };
+  document.getElementById('btnDescartarRuta').onclick=function(){ box.remove(); };
+}
+async function aplicarOrdenRuta(ordenSugerido, franjasOriginales){
+  try{
+    for(let i=0;i<ordenSugerido.length;i++){
+      await conTimeout(updateDoc(doc(db,'visitas',ordenSugerido[i].id), {franjaHoraria:franjasOriginales[i], actualizadoEn:serverTimestamp()}));
+    }
+    showStatus('Orden de ruta actualizado.', 'ok');
+    cargarAgenda();
+  }catch(err){
+    console.error(err);
+    showStatus('Error al aplicar el orden: '+err.message, 'err');
   }
 }
 function renderizarMiniCalendarioMes(cont, visitas, inicio, fin, soloLectura){
@@ -1897,12 +2013,19 @@ window.mostrarFranjasProxima = async function mostrarFranjasProxima(fecha){
   });
   cont.appendChild(lista);
 }
+function urlMapsParaVisita(v){
+  if(v.obraLat!=null && v.obraLon!=null) return 'https://www.google.com/maps/dir/?api=1&destination='+v.obraLat+','+v.obraLon;
+  if(v.direccionObra) return 'https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(v.direccionObra);
+  return null;
+}
 window.abrirCompletar = function abrirCompletar(){
   limpiarCompletar();
   const v=visitaActual;
+  const urlMaps=urlMapsParaVisita(v);
   document.getElementById('completarContexto').innerHTML =
     '<strong>'+(v.clienteRazonSocial||'')+'</strong><br>'+
-    '<span style="font-size:13px;color:#667">'+(v.nombreObra||'')+' · '+(v.fechaVisita||'')+(v.franjaHoraria?' · '+v.franjaHoraria:'')+'</span>';
+    '<span style="font-size:13px;color:#667">'+(v.nombreObra||'')+' · '+(v.fechaVisita||'')+(v.franjaHoraria?' · '+v.franjaHoraria:'')+'</span>'+
+    (urlMaps ? '<br><a href="'+urlMaps+'" target="_blank" rel="noopener" style="display:inline-block;margin-top:8px;font-size:13px;color:#1a56db;text-decoration:none">📍 Abrir en Maps</a>' : '');
   document.getElementById('cv_estado').value = v.estadoVisita==='Imprevista' ? '' : v.estadoVisita;
   document.getElementById('cv_fecha_realizada').value = v.fechaRealizada || hoyLocal();
   if(['Realizada','Pospuesta','Cancelada'].includes(v.estadoVisita)){
