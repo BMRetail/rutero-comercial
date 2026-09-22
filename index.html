@@ -479,8 +479,8 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
     <div class="section">
       <div class="section-title">Ficha de cliente</div>
       <div class="field" style="position:relative">
-        <label>Nombre del cliente</label>
-        <input type="text" id="cb_cliente" placeholder="Escribe para buscar..." autocomplete="off">
+        <label>Cliente</label>
+        <input type="text" id="cb_cliente" placeholder="Nombre o código de cliente..." autocomplete="off">
         <div class="autocomplete-list" id="cb_cliente_list"></div>
       </div>
     </div>
@@ -1079,11 +1079,24 @@ async function buscarClienteMenu(term){
   const listEl=document.getElementById('cb_cliente_list');
   if(!term){ listEl.classList.remove('open'); return; }
   const termLower=term.toLowerCase();
-  const q=query(collection(db,'clientes'), orderBy('razonSocialLower'), startAt(termLower), endAt(termLower+''), limit(8));
-  const snap=await getDocs(q);
+  const vistos=new Set();
   const items=[];
-  snap.forEach(function(d){ const c=d.data(); items.push({mainText:c.razonSocial,subText:'Partner: '+d.id,partner:d.id,razonSocial:c.razonSocial}); });
-  renderAutocomplete(listEl, items, seleccionarClienteMenu);
+  function agregar(d){
+    if(vistos.has(d.id)) return;
+    vistos.add(d.id);
+    const c=d.data();
+    items.push({mainText:c.razonSocial,subText:'Partner: '+d.id,partner:d.id,razonSocial:c.razonSocial});
+  }
+  try{
+    const exact=await getDoc(doc(db,'clientes',term));
+    if(exact.exists()) agregar(exact);
+  }catch(e){}
+  const qNombre=query(collection(db,'clientes'), orderBy('razonSocialLower'), startAt(termLower), endAt(termLower+''), limit(8));
+  const qPartner=query(collection(db,'clientes'), orderBy('partner'), startAt(term), endAt(term+''), limit(8));
+  const [snapNombre, snapPartner]=await Promise.all([getDocs(qNombre), getDocs(qPartner)]);
+  snapNombre.forEach(agregar);
+  snapPartner.forEach(agregar);
+  renderAutocomplete(listEl, items.slice(0,8), seleccionarClienteMenu);
 }
 function seleccionarClienteMenu(it){
   document.getElementById('nv_cliente').value=it.razonSocial;
