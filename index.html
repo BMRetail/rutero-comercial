@@ -653,6 +653,9 @@ let fechaSeleccionada = '';
 let franjaSeleccionada = '';
 let esVisitaImprevista = false;
 let visitaActual = null;      // {id, ...datos} para completar
+let completarUltimoId = null; // id de la ultima visita cargada en "Completar visita" -- si
+                               // se vuelve a la MISMA (atras, o tocando la misma tarjeta otra
+                               // vez) no se limpia el formulario, para no perder lo ya escrito
 let ubicacionTexto = '';
 let obraLat = null, obraLon = null; // coordenadas de la obra (por direccion elegida o GPS) -- usadas por la optimizacion de ruta
 let historialPantallas = [];
@@ -2032,8 +2035,14 @@ function urlMapsParaVisita(v){
   return null;
 }
 window.abrirCompletar = function abrirCompletar(){
-  limpiarCompletar();
   const v=visitaActual;
+  if(completarUltimoId===v.id){
+    // misma visita que ya estaba abierta (se volvio atras, o se toco la
+    // misma tarjeta otra vez) -- no limpiar, para no perder lo escrito
+    return;
+  }
+  completarUltimoId=v.id;
+  limpiarCompletar();
   const urlMaps=urlMapsParaVisita(v);
   document.getElementById('completarContexto').innerHTML =
     '<strong>'+(v.clienteRazonSocial||'')+'</strong><br>'+
@@ -2111,6 +2120,7 @@ window.guardarCompletarVisita = async function guardarCompletarVisita(){
       }));
     }
     showStatus('Visita guardada y cerrada.', 'ok');
+    completarUltimoId=null;
     irA('rutero', false);
   }catch(err){
     console.error(err);
