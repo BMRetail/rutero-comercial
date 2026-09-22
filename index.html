@@ -2229,7 +2229,11 @@ function pintarCredito(cliente){
 
   const facturasVencidas=cliente.facturasVencidas||0;
   const facturasProximas=cliente.facturasProximasVencer||0;
+  const facturasImpagadas=cliente.facturasImpagadas||0;
   let avisoHtml='';
+  if(facturasImpagadas>0){
+    avisoHtml+='<div style="background:var(--bm-red-light);color:var(--bm-red);font-size:13px;font-weight:600;padding:8px 12px;border-radius:8px;margin-bottom:6px">🚫 Tiene '+facturasImpagadas+' recibo(s) impagado(s) ('+formatEuros(cliente.importeImpagado)+') — riesgo de cobro, no incluido en el pendiente de abajo</div>';
+  }
   if(facturasVencidas>0){
     avisoHtml+='<div style="background:var(--bm-red-light);color:var(--bm-red);font-size:13px;font-weight:600;padding:8px 12px;border-radius:8px;margin-bottom:6px">⚠ Tiene '+facturasVencidas+' factura(s) vencida(s) ('+formatEuros(cliente.importeVencido)+')</div>';
   }
@@ -2239,9 +2243,19 @@ function pintarCredito(cliente){
   aviso.innerHTML=avisoHtml;
 
   const filas=[];
-  if(cliente.limiteCredito!=null) filas.push(['Límite de crédito', formatEuros(cliente.limiteCredito)]);
-  if(cliente.creditoAsegurado!=null) filas.push(['Crédito asegurado', formatEuros(cliente.creditoAsegurado)]);
-  if(cliente.formaPagoTexto) filas.push(['Forma de pago', cliente.formaPagoTexto]);
+  if(cliente.limiteCredito!=null){
+    let nota='';
+    if(cliente.creditoAsegurado!=null && cliente.creditoAsegurado!==cliente.limiteCredito){
+      nota=' <span style="font-weight:400;color:#8a8fa3">(asegurado: '+formatEuros(cliente.creditoAsegurado)+')</span>';
+    }
+    filas.push(['Límite de crédito', formatEuros(cliente.limiteCredito)+nota]);
+    const saldoParaDisponible=cliente.saldoTotalCredito!=null?cliente.saldoTotalCredito:(cliente.saldoPendienteCobro||0);
+    const disponible=cliente.limiteCredito-saldoParaDisponible;
+    const colorDisp=disponible<0?'var(--bm-red)':'var(--bm-blue)';
+    filas.push(['Saldo de crédito disponible', '<span style="color:'+colorDisp+'">'+formatEuros(disponible)+'</span>']);
+  }
+  const pagoPartes=[cliente.metodoPagoTexto, cliente.formaPagoTexto].filter(Boolean);
+  if(pagoPartes.length) filas.push(['Forma de pago', pagoPartes.join(' · ')]);
   let html='';
   if(filas.length){
     html+='<table style="width:100%;font-size:13px;border-collapse:collapse">'+
