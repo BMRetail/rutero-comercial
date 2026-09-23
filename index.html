@@ -1048,27 +1048,60 @@ function seleccionarDireccion(it){
   document.getElementById('nv_direccion').value=it.mainText;
   obraLat=it.lat; obraLon=it.lon;
 }
+/* ---------- cartera cerrada (comerciales provisionales PROVxxx) ----------
+   Los comerciales provisionales (Andalucía, 23/09/2026) solo pueden buscar y
+   elegir clientes de SU cartera provisional (PROVCLI...). Así no eligen por
+   error un cliente del ERP con el mismo nombre (p. ej. Constructora San José,
+   que tiene otro comercial y otra planificación) ni mezclan fichas u obras. */
+let carteraCerrada=null;
+function esClienteProvisional(id){ return /^PROVCLI/.test(id||''); }  // solo visible para su comercial provisional
+function esCarteraCerrada(){ return !!(comercialActual && /^PROV\d/.test(comercialActual.id)); }
+async function clientesCarteraCerrada(){
+  if(carteraCerrada && carteraCerrada.id===comercialActual.id) return carteraCerrada.clientes;
+  const snap=await getDocs(query(collection(db,'clientes'), where('plt','==',comercialActual.id)));
+  const lista=[];
+  snap.forEach(function(d){ lista.push({id:d.id, c:d.data()}); });
+  carteraCerrada={id:comercialActual.id, clientes:lista};
+  return lista;
+}
+async function buscarEnCarteraCerrada(term){
+  const t=term.toLowerCase();
+  const lista=await clientesCarteraCerrada();
+  return lista.filter(function(x){
+    return (x.c.razonSocialLower||'').includes(t) || x.id.toLowerCase().startsWith(t) || (x.c.cifUpper && x.c.cifUpper.toLowerCase()===t);
+  }).slice(0,8);
+}
 async function buscarClientePorNombre(term){
   const listEl=document.getElementById('nv_cliente_list');
   if(!term){ listEl.classList.remove('open'); return; }
+  if(esCarteraCerrada()){
+    const res=await buscarEnCarteraCerrada(term);
+    renderAutocomplete(listEl, res.map(function(x){ return {mainText:x.c.razonSocial,subText:'Partner: '+x.id,partner:x.id,razonSocial:x.c.razonSocial}; }), seleccionarCliente);
+    return;
+  }
   const termLower=term.toLowerCase();
   const q=query(collection(db,'clientes'), orderBy('razonSocialLower'), startAt(termLower), endAt(termLower+''), limit(8));
   const snap=await getDocs(q);
   const items=[];
-  snap.forEach(function(d){ const c=d.data(); items.push({mainText:c.razonSocial,subText:'Partner: '+d.id,partner:d.id,razonSocial:c.razonSocial}); });
+  snap.forEach(function(d){ if(esClienteProvisional(d.id)) return; const c=d.data(); items.push({mainText:c.razonSocial,subText:'Partner: '+d.id,partner:d.id,razonSocial:c.razonSocial}); });
   renderAutocomplete(listEl, items, seleccionarCliente);
 }
 async function buscarClientePorPartner(term){
   const listEl=document.getElementById('nv_partner_list');
   if(!term){ listEl.classList.remove('open'); return; }
+  if(esCarteraCerrada()){
+    const res=await buscarEnCarteraCerrada(term);
+    renderAutocomplete(listEl, res.map(function(x){ return {mainText:x.id,subText:x.c.razonSocial,partner:x.id,razonSocial:x.c.razonSocial}; }), seleccionarCliente);
+    return;
+  }
   const items=[];
   try{
     const exact=await getDoc(doc(db,'clientes',term));
-    if(exact.exists()){ const c=exact.data(); items.push({mainText:term,subText:c.razonSocial,partner:term,razonSocial:c.razonSocial}); }
+    if(exact.exists() && !esClienteProvisional(term)){ const c=exact.data(); items.push({mainText:term,subText:c.razonSocial,partner:term,razonSocial:c.razonSocial}); }
   }catch(e){}
   const q=query(collection(db,'clientes'), orderBy('partner'), startAt(term), endAt(term+''), limit(8));
   const snap=await getDocs(q);
-  snap.forEach(function(d){ if(d.id!==term){ const c=d.data(); items.push({mainText:d.id,subText:c.razonSocial,partner:d.id,razonSocial:c.razonSocial}); } });
+  snap.forEach(function(d){ if(d.id!==term && !esClienteProvisional(d.id)){ const c=d.data(); items.push({mainText:d.id,subText:c.razonSocial,partner:d.id,razonSocial:c.razonSocial}); } });
   renderAutocomplete(listEl, items, seleccionarCliente);
 }
 function seleccionarCliente(it){
@@ -1085,10 +1118,15 @@ async function buscarClienteMenu(term){
   const vistos=new Set();
   const items=[];
   function agregar(d){
-    if(vistos.has(d.id)) return;
+    if(vistos.has(d.id) || esClienteProvisional(d.id)) return;
     vistos.add(d.id);
     const c=d.data();
     items.push({mainText:c.razonSocial,subText:'Partner: '+d.id,partner:d.id,razonSocial:c.razonSocial});
+  }
+  if(esCarteraCerrada()){
+    const res=await buscarEnCarteraCerrada(term);
+    renderAutocomplete(listEl, res.map(function(x){ return {mainText:x.c.razonSocial,subText:'Partner: '+x.id,partner:x.id,razonSocial:x.c.razonSocial}; }), seleccionarClienteMenu);
+    return;
   }
   try{
     const exact=await getDoc(doc(db,'clientes',term));
@@ -1206,10 +1244,16 @@ const buscarPorCifDebounced=debounce(async function(cif){
   if(!cif || cif.length<5){ hint.textContent=''; return; }
   hint.textContent='Buscando...';
   try{
-    const q=query(collection(db,'clientes'), where('cifUpper','==',cif.toUpperCase()), limit(1));
-    const snap=await getDocs(q);
-    if(!snap.empty){
-      const d=snap.docs[0];
+    let d=null;
+    if(esCarteraCerrada()){
+      const x=(await clientesCarteraCerrada()).find(function(x){ return x.c.cifUpper && x.c.cifUpper===cif.toUpperCase(); });
+      if(x) d={id:x.id, data:function(){ return x.c; }};
+    } else {
+      const q=query(collection(db,'clientes'), where('cifUpper','==',cif.toUpperCase()), limit(5));
+      const snap=await getDocs(q);
+      d=snap.docs.find(function(x){ return !esClienteProvisional(x.id); })||null;
+    }
+    if(d){
       const c=d.data();
       document.getElementById('nv_tipo_existente').checked=true;
       mostrarBloqueCliente('existente');
@@ -1288,7 +1332,9 @@ window.guardarVisita = async function guardarVisita(){
     document.getElementById('nv_partner').classList.remove('error');
     let clienteExiste;
     try{
-      clienteExiste=(await getDoc(doc(db,'clientes',partner))).exists();
+      clienteExiste = esCarteraCerrada()
+        ? (await clientesCarteraCerrada()).some(function(x){ return x.id===partner; })
+        : (!esClienteProvisional(partner) && (await getDoc(doc(db,'clientes',partner))).exists());
     }catch(err){
       console.error(err);
       showStatus('No se pudo comprobar el cliente. Revisa tu conexión e inténtalo de nuevo.', 'err');
@@ -1296,7 +1342,9 @@ window.guardarVisita = async function guardarVisita(){
     }
     if(!clienteExiste){
       document.getElementById('nv_partner').classList.add('error');
-      showStatus('Ese código de cliente no existe en nuestra base. Usa "Cliente nuevo" o revisa el código escrito.', 'err');
+      showStatus(esCarteraCerrada()
+        ? 'Ese cliente no está en tu cartera. Usa "Cliente nuevo" o revisa el código escrito.'
+        : 'Ese código de cliente no existe en nuestra base. Usa "Cliente nuevo" o revisa el código escrito.', 'err');
       return;
     }
   }
