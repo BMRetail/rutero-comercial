@@ -248,7 +248,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
         <button class="menu-btn" onclick="irA('rutero')"><span class="ico">📋</span> Rutero — Registro de Visitas</button>
         <button class="menu-btn" onclick="irA('agenda')"><span class="ico">🗓️</span> Ver mi Agenda</button>
         <button class="menu-btn" onclick="irA('clientes')"><span class="ico">📇</span> Clientes</button>
-        <button class="menu-btn" onclick="irA('cartera')"><span class="ico">📋</span> Mi cartera</button>
+        <button class="menu-btn" onclick="abrirMiCartera()"><span class="ico">📋</span> Mi cartera</button>
       </div>
     </div>
   </div>
@@ -1804,6 +1804,11 @@ window.moverAgenda=function moverAgenda(delta){
 /* ---------- supervision del equipo ---------- */
 function iniciarSupervision(){
   if(!requireComercial()) return;
+  if(supervisionMantenerDetalle && supervisionComercialDetalle){
+    supervisionMantenerDetalle=false;
+    cargarDetalleComercial();
+    return;
+  }
   supervisionComercialDetalle=null;
   supervisionPeriodo='semana';
   cargarSupervision();
@@ -2028,6 +2033,28 @@ async function cargarDetalleComercial(){
       '<span style="font-weight:700;color:#1a1a2e">'+total+' visitas en total</span>'+
     '</div>';
   cont.appendChild(info);
+
+  // Fase 3 CRM: alertas de su cartera + acceso a la cartera completa
+  const alertasCartera=document.createElement('div');
+  alertasCartera.style.cssText='border:2px solid var(--bm-blue-mid);border-radius:12px;padding:12px 14px;margin-bottom:16px';
+  alertasCartera.innerHTML='<div style="font-size:13px;font-weight:700;color:var(--bm-blue);margin-bottom:8px">Alertas de su cartera</div><div class="hint">Cargando...</div>';
+  cont.appendChild(alertasCartera);
+  cargarDatosCartera(id).then(function(datos){
+    if(!datos || supervisionComercialDetalle==null || supervisionComercialDetalle.id!==id) return;
+    const cuentas=contarAlertasCartera(datos);
+    alertasCartera.innerHTML='<div style="font-size:13px;font-weight:700;color:var(--bm-blue);margin-bottom:8px">Alertas de su cartera <span style="font-weight:400;color:#8a8fa3">('+datos.clientes.length+' clientes)</span></div>'+
+      '<div style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:5px">'+
+      ALERTAS_CARTERA.map(function(a){
+        return '<div style="min-width:0;border-radius:10px;padding:6px 3px;font-size:10px;line-height:1.2;text-align:center;background:'+a.fondo+';color:'+a.color+';border:1px solid '+a.borde+'"><b style="font-size:15px">'+cuentas[a.id]+'</b><br>'+a.txt+'</div>';
+      }).join('')+'</div>';
+    const btn=document.createElement('button');
+    btn.type='button';
+    btn.className='secondary-btn';
+    btn.style.cssText='margin-top:10px;border:1.5px solid var(--bm-blue-mid);color:var(--bm-blue);font-weight:700';
+    btn.textContent='📋 Ver su cartera completa ›';
+    btn.onclick=function(){ abrirCarteraComercial(id, nombre); };
+    alertasCartera.appendChild(btn);
+  });
 
   const tituloAgenda=document.createElement('div');
   tituloAgenda.className='section-title';
@@ -2426,18 +2453,45 @@ const ALERTAS_CARTERA=[
   {id:'perdido', txt:'perdidos', etiqueta:'✖ Perdido', color:'#555', fondo:'#F1F2F5', borde:'#D5D8E0', peso:3},
   {id:'credito', txt:'crédito 90%', etiqueta:null, color:'var(--bm-amber)', fondo:'var(--bm-amber-light)', borde:'#EBCB91', peso:2}
 ];
-let carteraDatos=null;   // {id, cargadoEn, clientes:[...]}
+let carteraDatos=null;   // {id, cargadoEn, clientes:[...]} de la cartera que se está viendo
+const carteraCache={};   // por código de comercial, para volver sin recargar
+let carteraObjetivo=null;  // null = la propia; {id, nombre} = vista de supervisor (fase 3)
+let supervisionMantenerDetalle=false;
+window.abrirMiCartera = function abrirMiCartera(){ carteraObjetivo=null; irA('cartera'); }
+window.abrirCarteraComercial = function abrirCarteraComercial(id, nombre){
+  carteraObjetivo={id:id, nombre:nombre};
+  supervisionMantenerDetalle=true;
+  irA('cartera');
+}
 let carteraFiltro=null;  // id de alerta activa o null
 let carteraPeriodo='Mes';
 function escHtml(t){ return String(t==null?'':t).replace(/[&<>"]/g,function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
 async function iniciarCartera(){
-  const id=comercialActual && comercialActual.id;
+  const id = carteraObjetivo ? carteraObjetivo.id : (comercialActual && comercialActual.id);
   if(!id) return;
+  if(carteraObjetivo){
+    document.getElementById('headerTitle').textContent='Cartera de '+nombreLegible(carteraObjetivo.nombre);
+    document.getElementById('headerSub').textContent='Vista de supervisor';
+  }
+  const datos=carteraCache[id];
   // Se reutiliza lo cargado (p. ej. al volver de una ficha) durante 10 minutos
-  if(carteraDatos && carteraDatos.id===id && Date.now()-carteraDatos.cargadoEn<10*60*1000){ pintarCartera(); return; }
-  document.getElementById('carteraResumen').textContent='Cargando tu cartera...';
+  if(datos && Date.now()-datos.cargadoEn<10*60*1000){
+    if(carteraDatos!==datos){ carteraDatos=datos; carteraFiltro=null; }
+    pintarCartera();
+    return;
+  }
+  document.getElementById('carteraResumen').textContent='Cargando la cartera...';
   document.getElementById('carteraAlertas').innerHTML='';
   document.getElementById('carteraLista').innerHTML='';
+  carteraDatos=await cargarDatosCartera(id);
+  carteraFiltro=null;
+  pintarCartera();
+}
+function nombreLegible(n){
+  // "LLAMAS, JAVIER" -> "Llamas, Javier"
+  return String(n||'').toLowerCase().replace(/(^|[\s,(.-])(\p{L})/gu, function(m,a,b){ return a+b.toUpperCase(); });
+}
+async function cargarDatosCartera(id){
   let snapClientes, snapVisitas;
   try{
     [snapClientes, snapVisitas]=await Promise.all([
@@ -2447,7 +2501,7 @@ async function iniciarCartera(){
   }catch(err){
     console.error(err);
     document.getElementById('carteraResumen').textContent='Error cargando la cartera: '+err.message;
-    return;
+    return null;
   }
   const hoy=new Date(); hoy.setHours(0,0,0,0);
   const hoyIso=hoy.getFullYear()+'-'+String(hoy.getMonth()+1).padStart(2,'0')+'-'+String(hoy.getDate()).padStart(2,'0');
@@ -2482,9 +2536,13 @@ async function iniciarCartera(){
     x.usoCredito=usoCredito;
     x.prioridad=ALERTAS_CARTERA.reduce(function(t,a){ return t+(x.alertas[a.id]?a.peso:0); }, 0);
   });
-  carteraDatos={id:id, cargadoEn:Date.now(), clientes:clientes, ventasHasta:(ventas.find(Boolean)||{}).ventasHasta||''};
-  carteraFiltro=null;
-  pintarCartera();
+  carteraCache[id]={id:id, cargadoEn:Date.now(), clientes:clientes, ventasHasta:(ventas.find(Boolean)||{}).ventasHasta||''};
+  return carteraCache[id];
+}
+function contarAlertasCartera(datos){
+  const n={};
+  ALERTAS_CARTERA.forEach(function(a){ n[a.id]=datos.clientes.filter(function(x){ return x.alertas[a.id]; }).length; });
+  return n;
 }
 window.cambiarPeriodoCartera = function cambiarPeriodoCartera(p){ carteraPeriodo=p; pintarCartera(); }
 window.filtrarCartera = function filtrarCartera(idAlerta){ carteraFiltro = carteraFiltro===idAlerta ? null : idAlerta; pintarCartera(); }
@@ -2500,8 +2558,9 @@ window.pintarCartera = function pintarCartera(){
   document.getElementById('carteraResumen').innerHTML='<span style="font-weight:700;color:var(--bm-blue)">'+todos.length+' clientes</span>'+
     (carteraDatos.ventasHasta ? ' · ventas hasta el '+carteraDatos.ventasHasta : '');
   // Contadores de alertas (tocar = filtrar)
+  const cuentas=contarAlertasCartera(carteraDatos);
   document.getElementById('carteraAlertas').innerHTML=ALERTAS_CARTERA.map(function(a){
-    const n=todos.filter(function(x){ return x.alertas[a.id]; }).length;
+    const n=cuentas[a.id];
     const activo=carteraFiltro===a.id;
     return '<div onclick="filtrarCartera(\''+a.id+'\')" style="min-width:0;cursor:pointer;border-radius:10px;padding:6px 3px;font-size:10px;line-height:1.2;text-align:center;background:'+a.fondo+';color:'+a.color+';border:'+(activo?'2px solid '+a.color:'1px solid '+a.borde)+'"><b style="font-size:15px">'+n+'</b><br>'+a.txt+'</div>';
   }).join('');
@@ -2520,7 +2579,7 @@ window.pintarCartera = function pintarCartera(){
     return (b.prioridad-a.prioridad) || ((b.v?b.v.ventasYtdN1||0:0)-(a.v?a.v.ventasYtdN1||0:0));
   });
   const cont=document.getElementById('carteraLista');
-  if(!lista.length){ cont.innerHTML='<div class="section hint">'+(todos.length?'Ningún cliente cumple el filtro.':'No tienes clientes asignados.')+'</div>'; return; }
+  if(!lista.length){ cont.innerHTML='<div class="section hint">'+(todos.length?'Ningún cliente cumple el filtro.':(carteraObjetivo?'No tiene clientes asignados.':'No tienes clientes asignados.'))+'</div>'; return; }
   cont.innerHTML=lista.map(function(x){
     const v=x.v;
     let cifra='';
