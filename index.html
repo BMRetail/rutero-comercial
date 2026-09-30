@@ -248,6 +248,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
         <button class="menu-btn" onclick="irA('rutero')"><span class="ico">📋</span> Rutero — Registro de Visitas</button>
         <button class="menu-btn" onclick="irA('agenda')"><span class="ico">🗓️</span> Ver mi Agenda</button>
         <button class="menu-btn" onclick="irA('clientes')"><span class="ico">📇</span> Clientes</button>
+        <button class="menu-btn" onclick="irA('cartera')"><span class="ico">📋</span> Mi cartera</button>
       </div>
     </div>
   </div>
@@ -484,6 +485,29 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
         <div class="autocomplete-list" id="cb_cliente_list"></div>
       </div>
     </div>
+  </div>
+
+  <!-- ===================== MI CARTERA (CRM fase 2) ===================== -->
+  <div class="screen" id="screen-cartera">
+    <div class="section">
+      <div id="carteraResumen" class="hint">Cargando...</div>
+      <div id="carteraAlertas" style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:5px;margin-top:8px"></div>
+      <div style="display:flex;gap:6px;margin-top:10px">
+        <input type="text" id="ca_buscar" placeholder="Buscar cliente..." autocomplete="off" style="flex:1" oninput="pintarCartera()">
+        <select id="ca_orden" style="width:auto" onchange="pintarCartera()">
+          <option value="prioridad">Prioridad</option>
+          <option value="ventas">Ventas</option>
+          <option value="dias">Días sin visita</option>
+          <option value="nombre">Nombre</option>
+        </select>
+      </div>
+      <div class="radio-group" style="margin-top:10px">
+        <label class="radio-btn" for="ca_mes"><input type="radio" name="ca_periodo" id="ca_mes" value="Mes" checked onchange="cambiarPeriodoCartera('Mes')"><span>Mes</span></label>
+        <label class="radio-btn" for="ca_trim"><input type="radio" name="ca_periodo" id="ca_trim" value="Trim" onchange="cambiarPeriodoCartera('Trim')"><span>Trimestre</span></label>
+        <label class="radio-btn" for="ca_ytd"><input type="radio" name="ca_periodo" id="ca_ytd" value="Ytd" onchange="cambiarPeriodoCartera('Ytd')"><span>Año</span></label>
+      </div>
+    </div>
+    <div id="carteraLista"></div>
   </div>
 
   <!-- ===================== FICHA CLIENTE (CRM) ===================== -->
@@ -741,6 +765,7 @@ const TITULOS = {
   historial: ['Historial del cliente','Visitas anteriores'],
   ficha: ['Ficha del cliente','Datos, contactos y notas'],
   clientes: ['Clientes','Busca cualquier cliente'],
+  cartera: ['Mi cartera','Tus clientes, por prioridad'],
   supervision: ['Supervisión del equipo','¿Quién ha planificado?'],
   pendientes: ['Visitas pendientes','Cancela o reprograma'],
   reprogramar: ['Reprogramar visita','Elige nueva fecha y franja'],
@@ -766,6 +791,7 @@ window.irA = function irA(pantalla, guardarHistorial=true){
   if(pantalla==='completar' && visitaActual) window.abrirCompletar();
   if(pantalla==='agenda') iniciarAgenda();
   if(pantalla==='supervision') iniciarSupervision();
+  if(pantalla==='cartera') iniciarCartera();
   if(pantalla==='clientes'){
     document.getElementById('cb_cliente').value='';
     document.getElementById('cb_cliente_list').classList.remove('open');
@@ -2387,6 +2413,138 @@ function pintarCredito(cliente){
   }
   cont.innerHTML = html || '<div class="hint">Sin datos de crédito disponibles.</div>';
 }
+/* ---------- Mi cartera (CRM fase 2, 30/09/2026) ----------
+   Todos los clientes del comercial (clientes.plt == su código) con ventas
+   (clientesVentas), crédito (clientes) y última visita realizada (visitas).
+   Umbrales acordados con Rossy: caída = -10% o peor en el año (o sin compras
+   en 6 meses), 30 días para "cae sin visitar", 60 días para "sin visita",
+   crédito consumido al 90%. */
+const ALERTAS_CARTERA=[
+  {id:'cae', txt:'caen sin visita', etiqueta:'▼ Cae sin visitar', color:'var(--bm-red)', fondo:'var(--bm-red-light)', borde:'#E9B4B6', peso:5},
+  {id:'vencido', txt:'deuda vencida', etiqueta:null, color:'var(--bm-red)', fondo:'var(--bm-red-light)', borde:'#E9B4B6', peso:4},
+  {id:'sin60', txt:'+60 d. sin visita', etiqueta:'+60 días sin visita', color:'var(--bm-amber)', fondo:'var(--bm-amber-light)', borde:'#EBCB91', peso:2},
+  {id:'perdido', txt:'perdidos', etiqueta:'✖ Perdido', color:'#555', fondo:'#F1F2F5', borde:'#D5D8E0', peso:3},
+  {id:'credito', txt:'crédito 90%', etiqueta:null, color:'var(--bm-amber)', fondo:'var(--bm-amber-light)', borde:'#EBCB91', peso:2}
+];
+let carteraDatos=null;   // {id, cargadoEn, clientes:[...]}
+let carteraFiltro=null;  // id de alerta activa o null
+let carteraPeriodo='Mes';
+function escHtml(t){ return String(t==null?'':t).replace(/[&<>"]/g,function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+async function iniciarCartera(){
+  const id=comercialActual && comercialActual.id;
+  if(!id) return;
+  // Se reutiliza lo cargado (p. ej. al volver de una ficha) durante 10 minutos
+  if(carteraDatos && carteraDatos.id===id && Date.now()-carteraDatos.cargadoEn<10*60*1000){ pintarCartera(); return; }
+  document.getElementById('carteraResumen').textContent='Cargando tu cartera...';
+  document.getElementById('carteraAlertas').innerHTML='';
+  document.getElementById('carteraLista').innerHTML='';
+  let snapClientes, snapVisitas;
+  try{
+    [snapClientes, snapVisitas]=await Promise.all([
+      getDocs(query(collection(db,'clientes'), where('plt','==',id))),
+      getDocs(query(collection(db,'visitas'), where('comercialId','==',id)))
+    ]);
+  }catch(err){
+    console.error(err);
+    document.getElementById('carteraResumen').textContent='Error cargando la cartera: '+err.message;
+    return;
+  }
+  const hoy=new Date(); hoy.setHours(0,0,0,0);
+  const hoyIso=hoy.getFullYear()+'-'+String(hoy.getMonth()+1).padStart(2,'0')+'-'+String(hoy.getDate()).padStart(2,'0');
+  const ultimaVisita={};
+  snapVisitas.forEach(function(d){
+    const v=d.data();
+    if(v.estadoVisita!=='Realizada' || !v.clientePartner || !v.fechaVisita || v.fechaVisita>hoyIso) return;
+    if(!ultimaVisita[v.clientePartner] || v.fechaVisita>ultimaVisita[v.clientePartner]) ultimaVisita[v.clientePartner]=v.fechaVisita;
+  });
+  const clientes=[];
+  snapClientes.forEach(function(d){ clientes.push({partner:d.id, c:d.data()}); });
+  const ventas=await Promise.all(clientes.map(function(x){
+    return getDoc(doc(db,'clientesVentas',x.partner)).then(function(s){ return s.exists()?s.data():null; }).catch(function(){ return null; });
+  }));
+  clientes.forEach(function(x, i){
+    const c=x.c, v=ventas[i];
+    x.v=v;
+    x.ultimaVisita=ultimaVisita[x.partner]||null;
+    x.dias=x.ultimaVisita ? Math.round((hoy-new Date(x.ultimaVisita+'T00:00:00'))/86400000) : null;
+    const perdido=!!(v && v.tendencia==='perdido');
+    const baja=!!(v && v.variacionYtdPct!=null && v.variacionYtdPct<=-10);
+    const importeVencido=(c.importeVencido||0)+(c.importeImpagado||0);
+    const usoCredito=(c.limiteCredito>0) ? ((c.saldoTotalCredito!=null?c.saldoTotalCredito:(c.saldoPendienteCobro||0))/c.limiteCredito) : null;
+    x.alertas={
+      cae:(baja||perdido) && (x.dias==null || x.dias>30),
+      vencido:(c.facturasVencidas>0 || c.facturasImpagadas>0),
+      sin60:(x.dias==null || x.dias>60),
+      perdido:perdido,
+      credito:usoCredito!=null && usoCredito>=0.9
+    };
+    x.importeVencido=importeVencido;
+    x.usoCredito=usoCredito;
+    x.prioridad=ALERTAS_CARTERA.reduce(function(t,a){ return t+(x.alertas[a.id]?a.peso:0); }, 0);
+  });
+  carteraDatos={id:id, cargadoEn:Date.now(), clientes:clientes, ventasHasta:(ventas.find(Boolean)||{}).ventasHasta||''};
+  carteraFiltro=null;
+  pintarCartera();
+}
+window.cambiarPeriodoCartera = function cambiarPeriodoCartera(p){ carteraPeriodo=p; pintarCartera(); }
+window.filtrarCartera = function filtrarCartera(idAlerta){ carteraFiltro = carteraFiltro===idAlerta ? null : idAlerta; pintarCartera(); }
+window.abrirFichaDesdeCartera = function abrirFichaDesdeCartera(partner){
+  const x=carteraDatos.clientes.find(function(y){ return y.partner===partner; });
+  document.getElementById('nv_partner').value=partner;
+  document.getElementById('nv_cliente').value=x ? (x.c.razonSocial||partner) : partner;
+  window.verFichaCliente();
+}
+window.pintarCartera = function pintarCartera(){
+  if(!carteraDatos) return;
+  const todos=carteraDatos.clientes;
+  document.getElementById('carteraResumen').innerHTML='<span style="font-weight:700;color:var(--bm-blue)">'+todos.length+' clientes</span>'+
+    (carteraDatos.ventasHasta ? ' · ventas hasta el '+carteraDatos.ventasHasta : '');
+  // Contadores de alertas (tocar = filtrar)
+  document.getElementById('carteraAlertas').innerHTML=ALERTAS_CARTERA.map(function(a){
+    const n=todos.filter(function(x){ return x.alertas[a.id]; }).length;
+    const activo=carteraFiltro===a.id;
+    return '<div onclick="filtrarCartera(\''+a.id+'\')" style="min-width:0;cursor:pointer;border-radius:10px;padding:6px 3px;font-size:10px;line-height:1.2;text-align:center;background:'+a.fondo+';color:'+a.color+';border:'+(activo?'2px solid '+a.color:'1px solid '+a.borde)+'"><b style="font-size:15px">'+n+'</b><br>'+a.txt+'</div>';
+  }).join('');
+  const term=(document.getElementById('ca_buscar').value||'').trim().toLowerCase();
+  let lista=todos.filter(function(x){
+    if(carteraFiltro && !x.alertas[carteraFiltro]) return false;
+    if(term && !((x.c.razonSocialLower||'').includes(term) || x.partner.toLowerCase().startsWith(term))) return false;
+    return true;
+  });
+  const orden=document.getElementById('ca_orden').value;
+  const venta=function(x){ return x.v ? (x.v['ventas'+carteraPeriodo]||0) : 0; };
+  lista.sort(function(a,b){
+    if(orden==='ventas') return venta(b)-venta(a);
+    if(orden==='dias') return (b.dias==null?1e9:b.dias)-(a.dias==null?1e9:a.dias);
+    if(orden==='nombre') return (a.c.razonSocial||'').localeCompare(b.c.razonSocial||'');
+    return (b.prioridad-a.prioridad) || ((b.v?b.v.ventasYtdN1||0:0)-(a.v?a.v.ventasYtdN1||0:0));
+  });
+  const cont=document.getElementById('carteraLista');
+  if(!lista.length){ cont.innerHTML='<div class="section hint">'+(todos.length?'Ningún cliente cumple el filtro.':'No tienes clientes asignados.')+'</div>'; return; }
+  cont.innerHTML=lista.map(function(x){
+    const v=x.v;
+    let cifra='';
+    if(v){
+      const p=v['variacion'+carteraPeriodo+'Pct'];
+      cifra='<div style="font-size:14px;font-weight:700;color:#1a1a2e">'+formatEurosCorto(venta(x))+'</div>'+
+        (p!=null?'<div style="font-size:11px;font-weight:700;color:'+(p<0?'var(--bm-red)':'var(--bm-green)')+'">'+(p>0?'+':'')+p.toLocaleString('es-ES')+'%</div>':'');
+    }
+    const visita = x.dias==null ? 'Sin visitas registradas' : (x.dias===0 ? 'Visitado hoy' : 'Última visita hace '+x.dias+' día'+(x.dias===1?'':'s'));
+    // Año solo si la compra no es de este año (si no, "16/09" confunde una compra de hace un año con una reciente)
+    const compra = v && v.ultimaCompra ? ' · compra '+(v.ultimaCompra.slice(6)===String(new Date().getFullYear()) ? v.ultimaCompra.slice(0,5) : v.ultimaCompra) : '';
+    const badges=ALERTAS_CARTERA.filter(function(a){ return x.alertas[a.id]; }).map(function(a){
+      let t=a.etiqueta;
+      if(a.id==='vencido') t='Vencido '+formatEurosCorto(x.importeVencido);
+      if(a.id==='credito') t='Crédito al '+Math.round(x.usoCredito*100)+'%';
+      return '<span style="display:inline-block;font-size:10px;font-weight:700;padding:2px 7px;border-radius:9px;margin:4px 4px 0 0;background:'+a.fondo+';color:'+a.color+'">'+t+'</span>';
+    }).join('');
+    return '<div onclick="abrirFichaDesdeCartera(\''+escHtml(x.partner)+'\')" style="cursor:pointer;padding:10px 16px;border-bottom:1px solid var(--bm-blue-light)">'+
+      '<div style="display:flex;justify-content:space-between;gap:10px"><div style="min-width:0"><div style="font-size:14px;font-weight:700;color:#1a1a2e">'+escHtml(x.c.razonSocial||x.partner)+'</div>'+
+      '<div style="font-size:11px;color:#667;margin-top:1px">'+visita+compra+'</div></div>'+
+      '<div style="text-align:right;white-space:nowrap">'+cifra+'</div></div>'+badges+'</div>';
+  }).join('');
+}
+
 /* ---------- Ventas del cliente (CRM, KPI desde el cubo vía importador) ---------- */
 const TENDENCIAS={
   crece:{txt:'▲ Crece', color:'var(--bm-green)', fondo:'#E6F4EA'},
