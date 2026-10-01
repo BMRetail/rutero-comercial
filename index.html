@@ -2017,6 +2017,7 @@ async function cargarDetalleComercial(){
       '<span style="font-size:22px;font-weight:700;color:var(--bm-blue)">'+tocados+'</span>'+
       '<span style="font-size:14px;color:#667">de '+cartera+' clientes distintos ('+pct+'%)</span>'+
     '</div>'+
+    '<div id="notaCoberturaCompaneros" style="font-size:12px;color:#3C3489;margin:-4px 0 8px"></div>'+
     '<div style="background:var(--bm-blue-light);border-radius:20px;height:8px;overflow:hidden;margin-bottom:14px">'+
       '<div style="background:var(--bm-blue-mid);height:100%;width:'+pct+'%"></div>'+
     '</div>'+
@@ -2041,6 +2042,18 @@ async function cargarDetalleComercial(){
   cont.appendChild(alertasCartera);
   cargarDatosCartera(id).then(function(datos){
     if(!datos || supervisionComercialDetalle==null || supervisionComercialDetalle.id!==id) return;
+    // Nota de cobertura (trazabilidad 01/10/2026): clientes de su cartera que en este
+    // periodo atendió un compañero, y clientes de compañeros que atendió él.
+    const deCartera=new Set(datos.clientes.map(function(x){ return x.partner; }));
+    const cubiertosPorOtros=new Set(datos.visitasDeCompaneros.filter(function(v){
+      return v.fechaVisita>=inicio && v.fechaVisita<=fin && !clientesTocados.has(v.clientePartner);
+    }).map(function(v){ return v.clientePartner; }));
+    const ajenosAtendidos=new Set(visitas.filter(function(v){ return v.clientePartner && !deCartera.has(v.clientePartner); }).map(function(v){ return v.clientePartner; }));
+    const notas=[];
+    if(cubiertosPorOtros.size) notas.push('👥 +'+cubiertosPorOtros.size+' de su cartera atendido'+(cubiertosPorOtros.size===1?'':'s')+' por compañeros');
+    if(ajenosAtendidos.size) notas.push('👥 Atendió '+ajenosAtendidos.size+' cliente'+(ajenosAtendidos.size===1?'':'s')+' fuera de su cartera');
+    const nota=document.getElementById('notaCoberturaCompaneros');
+    if(nota) nota.textContent=notas.join(' · ');
     const cuentas=contarAlertasCartera(datos);
     alertasCartera.innerHTML='<div style="font-size:13px;font-weight:700;color:var(--bm-blue);margin-bottom:8px">Alertas de su cartera <span style="font-weight:400;color:#8a8fa3">('+datos.clientes.length+' clientes)</span></div>'+
       '<div style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:5px">'+
@@ -2268,6 +2281,16 @@ window.verHistorialCliente = async function verHistorialCliente(){
   if(snap.empty){ cont.innerHTML='<div class="empty-state">Sin visitas anteriores registradas para este cliente.</div>'; return; }
   const visitas=[];
   snap.forEach(function(d){ visitas.push(d.data()); });
+  // Titular del cliente, para marcar las visitas hechas por un compañero (trazabilidad 01/10/2026)
+  let titularPlt='', titularNombre='';
+  try{
+    const sc=await getDoc(doc(db,'clientes',partner));
+    if(sc.exists()){ titularPlt=sc.data().plt||''; titularNombre=sc.data().comercialAsignado||''; }
+  }catch(e){}
+  function marcaCompanero(v){
+    if(!titularPlt || titularPlt==='999999999' || !v.comercialId || v.comercialId===titularPlt) return '';
+    return '<div><span style="display:inline-block;font-size:10px;font-weight:700;padding:2px 7px;border-radius:9px;margin-top:4px;background:#EEEDFE;color:#3C3489">👥 Visita de compañero'+(titularNombre?' (cubre a '+nombreLegible(titularNombre)+')':'')+'</span></div>';
+  }
 
   function pintarVisita(v, compacta){
     const card=document.createElement('div');
@@ -2275,16 +2298,16 @@ window.verHistorialCliente = async function verHistorialCliente(){
     if(compacta){
       card.style.padding='10px 14px';
       card.style.cursor='default';
-      const resumen=[v.motivoVisita, v.resultadoVisita].filter(Boolean).join(' · ');
+      const resumen=[v.comercialNombre?nombreLegible(v.comercialNombre):'', v.motivoVisita, v.resultadoVisita].filter(Boolean).join(' · ');
       card.innerHTML=
         '<div class="top" style="margin-bottom:0"><span class="fecha">'+(v.fechaVisita||'')+'</span><span class="badge '+v.estadoVisita+'">'+v.estadoVisita+'</span></div>'+
-        (resumen?'<div style="font-size:12px;color:#667;margin-top:3px">'+resumen+'</div>':'');
+        (resumen?'<div style="font-size:12px;color:#667;margin-top:3px">'+resumen+'</div>':'')+marcaCompanero(v);
     }else{
       card.innerHTML=
         '<div class="top"><span class="fecha">'+(v.fechaVisita||'')+'</span><span class="badge '+v.estadoVisita+'">'+v.estadoVisita+'</span></div>'+
         '<div class="obra">'+(v.comercialNombre||'')+' · '+(v.motivoVisita||'')+'</div>'+
         (v.resultadoVisita?'<div class="hint">'+v.resultadoVisita+'</div>':'')+
-        (v.comentarios?'<div class="hint">'+v.comentarios+'</div>':'');
+        (v.comentarios?'<div class="hint">'+v.comentarios+'</div>':'')+marcaCompanero(v);
     }
     return card;
   }
@@ -2504,22 +2527,66 @@ async function cargarDatosCartera(id){
     return null;
   }
   const hoy=new Date(); hoy.setHours(0,0,0,0);
-  const hoyIso=hoy.getFullYear()+'-'+String(hoy.getMonth()+1).padStart(2,'0')+'-'+String(hoy.getDate()).padStart(2,'0');
-  const ultimaVisita={};
-  snapVisitas.forEach(function(d){
-    const v=d.data();
-    if(v.estadoVisita!=='Realizada' || !v.clientePartner || !v.fechaVisita || v.fechaVisita>hoyIso) return;
-    if(!ultimaVisita[v.clientePartner] || v.fechaVisita>ultimaVisita[v.clientePartner]) ultimaVisita[v.clientePartner]=v.fechaVisita;
-  });
+  const isoDe=function(f){ return f.getFullYear()+'-'+String(f.getMonth()+1).padStart(2,'0')+'-'+String(f.getDate()).padStart(2,'0'); };
+  const hoyIso=isoDe(hoy);
   const clientes=[];
   snapClientes.forEach(function(d){ clientes.push({partner:d.id, c:d.data()}); });
+  const enCartera=new Set(clientes.map(function(x){ return x.partner; }));
+
+  // Trazabilidad (01/10/2026, acordado con Rossy): la última visita de un cliente
+  // cuenta la de CUALQUIER comercial (p. ej. un compañero que cubre vacaciones),
+  // indicando quién fue. Cada visita sigue siendo de quien la hizo (cumplimiento,
+  // conversión e importe no cambian).
+  const visitasCartera=[];
+  const lotes=[];
+  for(let i=0;i<clientes.length;i+=30) lotes.push(clientes.slice(i,i+30).map(function(x){ return x.partner; }));
+  try{
+    const snaps=await Promise.all(lotes.map(function(l){ return getDocs(query(collection(db,'visitas'), where('clientePartner','in',l))); }));
+    snaps.forEach(function(sn){ sn.forEach(function(d){ visitasCartera.push(d.data()); }); });
+  }catch(err){
+    console.error(err);
+    snapVisitas.forEach(function(d){ visitasCartera.push(d.data()); });  // si falla, al menos las propias
+  }
+  const ultimaVisita={};
+  visitasCartera.forEach(function(v){
+    if(v.estadoVisita!=='Realizada' || !v.clientePartner || !v.fechaVisita || v.fechaVisita>hoyIso) return;
+    const u=ultimaVisita[v.clientePartner];
+    if(!u || v.fechaVisita>u.fecha) ultimaVisita[v.clientePartner]={fecha:v.fechaVisita, comercialId:v.comercialId, comercialNombre:v.comercialNombre||''};
+  });
+  // Visitas de compañeros a clientes de esta cartera (para la nota de cobertura en Supervisión)
+  const visitasDeCompaneros=visitasCartera.filter(function(v){ return v.comercialId && v.comercialId!==id; });
+
+  // Clientes de OTROS comerciales que este comercial ha atendido o tiene planificados (90 días)
+  const desde=new Date(hoy); desde.setDate(desde.getDate()-90);
+  const desdeIso=isoDe(desde);
+  const ajenos={};
+  snapVisitas.forEach(function(d){
+    const v=d.data();
+    if(!v.clientePartner || enCartera.has(v.clientePartner) || !v.fechaVisita || v.fechaVisita<desdeIso) return;
+    if(v.estadoVisita==='Cancelada') return;
+    const a=ajenos[v.clientePartner] || (ajenos[v.clientePartner]={partner:v.clientePartner, razonSocial:v.clienteRazonSocial||v.clientePartner, ultimaRealizada:null, proximaPlanificada:null});
+    if(v.estadoVisita==='Realizada' && v.fechaVisita<=hoyIso){ if(!a.ultimaRealizada || v.fechaVisita>a.ultimaRealizada) a.ultimaRealizada=v.fechaVisita; }
+    else if((v.estadoVisita==='Planificada' || v.estadoVisita==='Imprevista') && v.fechaVisita>=hoyIso){ if(!a.proximaPlanificada || v.fechaVisita<a.proximaPlanificada) a.proximaPlanificada=v.fechaVisita; }
+  });
+  const atendidosAjenos=Object.values(ajenos);
+  await Promise.all(atendidosAjenos.map(function(a){
+    return getDoc(doc(db,'clientes',a.partner)).then(function(sn){
+      if(sn.exists()){
+        const c=sn.data(); a.razonSocial=c.razonSocial||a.razonSocial;
+        a.sinTitular=!c.plt || c.plt==='999999999';  // cajón general: no es de ningún compañero
+        a.titular=a.sinTitular ? '' : (c.comercialAsignado||c.plt||'');
+      }
+    }).catch(function(){});
+  }));
   const ventas=await Promise.all(clientes.map(function(x){
     return getDoc(doc(db,'clientesVentas',x.partner)).then(function(s){ return s.exists()?s.data():null; }).catch(function(){ return null; });
   }));
   clientes.forEach(function(x, i){
     const c=x.c, v=ventas[i];
     x.v=v;
-    x.ultimaVisita=ultimaVisita[x.partner]||null;
+    const uv=ultimaVisita[x.partner]||null;
+    x.ultimaVisita=uv ? uv.fecha : null;
+    x.visitaDeCompanero = uv && uv.comercialId!==id ? (uv.comercialNombre||uv.comercialId) : null;
     x.dias=x.ultimaVisita ? Math.round((hoy-new Date(x.ultimaVisita+'T00:00:00'))/86400000) : null;
     const perdido=!!(v && v.tendencia==='perdido');
     const baja=!!(v && v.variacionYtdPct!=null && v.variacionYtdPct<=-10);
@@ -2536,7 +2603,8 @@ async function cargarDatosCartera(id){
     x.usoCredito=usoCredito;
     x.prioridad=ALERTAS_CARTERA.reduce(function(t,a){ return t+(x.alertas[a.id]?a.peso:0); }, 0);
   });
-  carteraCache[id]={id:id, cargadoEn:Date.now(), clientes:clientes, ventasHasta:(ventas.find(Boolean)||{}).ventasHasta||''};
+  carteraCache[id]={id:id, cargadoEn:Date.now(), clientes:clientes, ventasHasta:(ventas.find(Boolean)||{}).ventasHasta||'',
+    visitasDeCompaneros:visitasDeCompaneros, atendidosAjenos:atendidosAjenos};
   return carteraCache[id];
 }
 function contarAlertasCartera(datos){
@@ -2579,7 +2647,7 @@ window.pintarCartera = function pintarCartera(){
     return (b.prioridad-a.prioridad) || ((b.v?b.v.ventasYtdN1||0:0)-(a.v?a.v.ventasYtdN1||0:0));
   });
   const cont=document.getElementById('carteraLista');
-  if(!lista.length){ cont.innerHTML='<div class="section hint">'+(todos.length?'Ningún cliente cumple el filtro.':(carteraObjetivo?'No tiene clientes asignados.':'No tienes clientes asignados.'))+'</div>'; return; }
+  if(!lista.length){ cont.innerHTML='<div class="section hint">'+(todos.length?'Ningún cliente cumple el filtro.':(carteraObjetivo?'No tiene clientes asignados.':'No tienes clientes asignados.'))+'</div>'; pintarAtendidosAjenos(term); return; }
   cont.innerHTML=lista.map(function(x){
     const v=x.v;
     let cifra='';
@@ -2588,7 +2656,8 @@ window.pintarCartera = function pintarCartera(){
       cifra='<div style="font-size:14px;font-weight:700;color:#1a1a2e">'+formatEurosCorto(venta(x))+'</div>'+
         (p!=null?'<div style="font-size:11px;font-weight:700;color:'+(p<0?'var(--bm-red)':'var(--bm-green)')+'">'+(p>0?'+':'')+p.toLocaleString('es-ES')+'%</div>':'');
     }
-    const visita = x.dias==null ? 'Sin visitas registradas' : (x.dias===0 ? 'Visitado hoy' : 'Última visita hace '+x.dias+' día'+(x.dias===1?'':'s'));
+    const visita = (x.dias==null ? 'Sin visitas registradas' : (x.dias===0 ? 'Visitado hoy' : 'Última visita hace '+x.dias+' día'+(x.dias===1?'':'s')))+
+      (x.visitaDeCompanero ? ' · por '+escHtml(nombreLegible(x.visitaDeCompanero)) : '');
     // Año solo si la compra no es de este año (si no, "16/09" confunde una compra de hace un año con una reciente)
     const compra = v && v.ultimaCompra ? ' · compra '+(v.ultimaCompra.slice(6)===String(new Date().getFullYear()) ? v.ultimaCompra.slice(0,5) : v.ultimaCompra) : '';
     const badges=ALERTAS_CARTERA.filter(function(a){ return x.alertas[a.id]; }).map(function(a){
@@ -2596,12 +2665,42 @@ window.pintarCartera = function pintarCartera(){
       if(a.id==='vencido') t='Vencido '+formatEurosCorto(x.importeVencido);
       if(a.id==='credito') t='Crédito al '+Math.round(x.usoCredito*100)+'%';
       return '<span style="display:inline-block;font-size:10px;font-weight:700;padding:2px 7px;border-radius:9px;margin:4px 4px 0 0;background:'+a.fondo+';color:'+a.color+'">'+t+'</span>';
-    }).join('');
+    }).join('') + (x.visitaDeCompanero ? '<span style="display:inline-block;font-size:10px;font-weight:700;padding:2px 7px;border-radius:9px;margin:4px 4px 0 0;background:#EEEDFE;color:#3C3489">👥 Atendido por compañero</span>' : '');
     return '<div onclick="abrirFichaDesdeCartera(\''+escHtml(x.partner)+'\')" style="cursor:pointer;padding:10px 16px;border-bottom:1px solid var(--bm-blue-light)">'+
       '<div style="display:flex;justify-content:space-between;gap:10px"><div style="min-width:0"><div style="font-size:14px;font-weight:700;color:#1a1a2e">'+escHtml(x.c.razonSocial||x.partner)+'</div>'+
       '<div style="font-size:11px;color:#667;margin-top:1px">'+visita+compra+'</div></div>'+
       '<div style="text-align:right;white-space:nowrap">'+cifra+'</div></div>'+badges+'</div>';
   }).join('');
+  pintarAtendidosAjenos(term);
+}
+// Clientes de otros comerciales que este comercial ha atendido o tiene planificados (90 días).
+// Solo consulta: el cliente sigue siendo de su titular.
+function pintarAtendidosAjenos(term){
+  const cont=document.getElementById('carteraLista');
+  if(carteraFiltro) return;  // con un filtro de alerta activo solo se ve la cartera propia
+  let lista=(carteraDatos.atendidosAjenos||[]).filter(function(a){
+    return !term || (a.razonSocial||'').toLowerCase().includes(term) || a.partner.toLowerCase().startsWith(term);
+  });
+  if(!lista.length) return;
+  lista.sort(function(a,b){ return ((b.ultimaRealizada||b.proximaPlanificada||'')).localeCompare(a.ultimaRealizada||a.proximaPlanificada||''); });
+  const fmt=function(iso){ const p=iso.split('-'); return p[2]+'/'+p[1]; };
+  const quien = carteraObjetivo ? 'ha atendido' : 'has atendido';
+  cont.insertAdjacentHTML('beforeend',
+    '<div style="padding:8px 16px;background:#EEEDFE;font-size:12px;font-weight:700;color:#3C3489;margin-top:6px">👥 Otros clientes que '+quien+' (últimos 90 días) · '+lista.length+'</div>'+
+    lista.map(function(a){
+      const det=[];
+      if(a.ultimaRealizada) det.push((carteraObjetivo?'su':'tu')+' última visita '+fmt(a.ultimaRealizada));
+      if(a.proximaPlanificada) det.push('planificada '+fmt(a.proximaPlanificada));
+      return '<div onclick="abrirFichaAjeno(\''+escHtml(a.partner)+'\')" style="cursor:pointer;padding:10px 16px;border-bottom:1px solid var(--bm-blue-light)">'+
+        '<div style="font-size:14px;font-weight:700;color:#1a1a2e">'+escHtml(a.razonSocial)+'</div>'+
+        '<div style="font-size:11px;color:#667;margin-top:1px">'+(a.titular?'Cliente de '+escHtml(nombreLegible(a.titular))+' · ':(a.sinTitular?'Sin comercial asignado · ':''))+det.join(' · ')+'</div></div>';
+    }).join(''));
+}
+window.abrirFichaAjeno = function abrirFichaAjeno(partner){
+  const a=(carteraDatos.atendidosAjenos||[]).find(function(y){ return y.partner===partner; });
+  document.getElementById('nv_partner').value=partner;
+  document.getElementById('nv_cliente').value=a ? a.razonSocial : partner;
+  window.verFichaCliente();
 }
 
 /* ---------- Ventas del cliente (CRM, KPI desde el cubo vía importador) ---------- */
