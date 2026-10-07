@@ -149,6 +149,9 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 .radio-btn:has(#cv_oa_no:checked) span{color:var(--bm-red);font-weight:700}
 
 .screen{display:none}
+.cnt-ficha{background:var(--bm-blue-light);color:var(--bm-blue);border-radius:9px;padding:1px 8px;font-size:11px;margin-left:6px;letter-spacing:0}
+.cnt-ficha:empty{display:none}
+.ver-mas-ficha{font-size:12px;font-weight:700;color:var(--bm-blue-mid);cursor:pointer;padding:6px 0}
 .screen.active{display:block}
 </style>
 </head>
@@ -548,27 +551,50 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
       <div id="fichaCredito" style="display:none;margin-top:12px"></div>
     </div>
     <div class="section">
-      <div class="section-title">Contactos</div>
-      <div id="fichaContactos"></div>
-      <div class="field"><input type="text" id="fc_nombre" placeholder="Nombre del contacto"></div>
-      <div class="row-2">
-        <input type="text" id="fc_cargo" placeholder="Cargo (opcional)">
-        <input type="tel" id="fc_telefono" placeholder="Teléfono">
+      <div class="section-title" style="cursor:pointer;margin-bottom:0" onclick="toggleSeccionFicha('Contactos')">
+        Contactos <span id="cntContactos" class="cnt-ficha"></span>
+        <span id="chevContactos" style="margin-left:auto;font-size:11px">▾</span>
       </div>
-      <button type="button" class="secondary-btn" style="border-style:dashed;margin-top:8px" onclick="anadirContacto()">+ Añadir contacto</button>
+      <div id="cuerpoContactos" style="margin-top:10px">
+        <input type="text" id="bqContactos" placeholder="🔍 Buscar contacto..." autocomplete="off" style="display:none;margin-bottom:8px" oninput="pintarListasFicha()">
+        <div id="fichaContactos"></div>
+        <button type="button" class="secondary-btn" id="btnFormContactos" style="border-style:dashed;margin-top:8px" onclick="mostrarFormFicha('Contactos')">+ Añadir contacto</button>
+        <div id="formContactos" style="display:none;margin-top:8px">
+          <div class="field"><input type="text" id="fc_nombre" placeholder="Nombre del contacto"></div>
+          <div class="row-2">
+            <input type="text" id="fc_cargo" placeholder="Cargo (opcional)">
+            <input type="tel" id="fc_telefono" placeholder="Teléfono">
+          </div>
+          <button type="button" class="submit-btn" style="margin-top:8px" onclick="anadirContacto()">Guardar contacto</button>
+        </div>
+      </div>
     </div>
     <div class="section">
-      <div class="section-title">Obras</div>
-      <div id="fichaObras"></div>
-      <div class="field"><input type="text" id="fo_nombre" placeholder="Nombre de la obra"></div>
-      <div class="field"><input type="text" id="fo_direccion" placeholder="Dirección"></div>
-      <button type="button" class="secondary-btn" style="border-style:dashed;margin-top:8px" onclick="anadirObraFicha()">+ Añadir obra</button>
+      <div class="section-title" style="cursor:pointer;margin-bottom:0" onclick="toggleSeccionFicha('Obras')">
+        Obras <span id="cntObras" class="cnt-ficha"></span>
+        <span id="chevObras" style="margin-left:auto;font-size:11px">▾</span>
+      </div>
+      <div id="cuerpoObras" style="margin-top:10px">
+        <input type="text" id="bqObras" placeholder="🔍 Buscar obra..." autocomplete="off" style="display:none;margin-bottom:8px" oninput="pintarListasFicha()">
+        <div id="fichaObras"></div>
+        <button type="button" class="secondary-btn" id="btnFormObras" style="border-style:dashed;margin-top:8px" onclick="mostrarFormFicha('Obras')">+ Añadir obra</button>
+        <div id="formObras" style="display:none;margin-top:8px">
+          <div class="field"><input type="text" id="fo_nombre" placeholder="Nombre de la obra"></div>
+          <div class="field"><input type="text" id="fo_direccion" placeholder="Dirección"></div>
+          <button type="button" class="submit-btn" style="margin-top:8px" onclick="anadirObraFicha()">Guardar obra</button>
+        </div>
+      </div>
     </div>
     <div class="section">
-      <div class="section-title">Comentarios</div>
-      <div id="fichaComentarios"></div>
-      <div class="field"><textarea id="fc_comentario" placeholder="Añadir un comentario..." style="min-height:50px"></textarea></div>
-      <button type="button" class="submit-btn" onclick="anadirComentario()">Guardar comentario</button>
+      <div class="section-title" style="cursor:pointer;margin-bottom:0" onclick="toggleSeccionFicha('Comentarios')">
+        Comentarios <span id="cntComentarios" class="cnt-ficha"></span>
+        <span id="chevComentarios" style="margin-left:auto;font-size:11px">▸</span>
+      </div>
+      <div id="cuerpoComentarios" style="display:none;margin-top:10px">
+        <div id="fichaComentarios"></div>
+        <div class="field"><textarea id="fc_comentario" placeholder="Añadir un comentario..." style="min-height:50px"></textarea></div>
+        <button type="button" class="submit-btn" onclick="anadirComentario()">Guardar comentario</button>
+      </div>
     </div>
     </div>
   </div>
@@ -679,7 +705,7 @@ const MAPBOX_TOKEN = "pk.eyJ1IjoiYm1yZXRhaWwiLCJhIjoiY211YjFvbW1tMWJ4aDJ5cjE0d3M
 
 import { initializeApp } from 'https://cdn.jsdelivr.net/npm/firebase@10.12.0/app/+esm';
 import {
-  getFirestore, collection, doc, getDoc, getDocs, addDoc, updateDoc, setDoc, arrayUnion,
+  getFirestore, collection, doc, getDoc, getDocs, addDoc, updateDoc, setDoc, arrayUnion, deleteField,
   query, where, orderBy, startAt, endAt, limit, serverTimestamp
 } from 'https://cdn.jsdelivr.net/npm/firebase@10.12.0/firestore/+esm';
 import { getAuth, signInAnonymously } from 'https://cdn.jsdelivr.net/npm/firebase@10.12.0/auth/+esm';
@@ -2386,6 +2412,14 @@ function cargarBorradorFicha(clave){
   const b=borradoresFicha[clave]||{};
   CAMPOS_BORRADOR_FICHA.forEach(function(id){ document.getElementById(id).value=b[id]||''; });
   claveBorradorFicha=clave;
+  // Listas plegables (07/10/2026): cada ficha se abre con contactos y obras
+  // desplegados, comentarios plegados y los formularios de añadir cerrados
+  // (salvo que haya un borrador a medias).
+  fichaVerTodos={Contactos:false, Obras:false, ObrasFin:false, Comentarios:false, ContactosBaja:false};
+  ['bqContactos','bqObras'].forEach(function(id){ document.getElementById(id).value=''; });
+  abrirSeccionFicha('Contactos', true); abrirSeccionFicha('Obras', true); abrirSeccionFicha('Comentarios', !!b.fc_comentario);
+  mostrarFormFicha('Contactos', !!(b.fc_nombre||b.fc_cargo||b.fc_telefono));
+  mostrarFormFicha('Obras', !!(b.fo_nombre||b.fo_direccion));
 }
 window.verFichaCliente = async function verFichaCliente(){
   const partner=f('nv_partner');
@@ -2406,6 +2440,14 @@ window.verFichaCliente = async function verFichaCliente(){
     const snapCliente=await getDoc(doc(db,'clientes',partner));
     if(snapCliente.exists()) cliente=snapCliente.data();
   }catch(err){ console.error(err); }
+  if(cliente && cliente.estadoErp){
+    // Estado del cliente en el ERP (07/10/2026)
+    const activo=cliente.estadoErp==='Activo';
+    const lineaPartner=document.querySelector('#fichaDatos > div:nth-child(2)');
+    if(lineaPartner) lineaPartner.insertAdjacentHTML('beforeend',
+      ' <span style="display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:9px;margin-left:4px;'+
+      (activo?'background:#E6F4EA;color:var(--bm-green-dark)':'background:var(--bm-red-light);color:var(--bm-red)')+'">● '+cliente.estadoErp+'</span>');
+  }
   if(cliente && cliente.numEmpleados!=null){
     document.getElementById('fichaDatos').innerHTML+=
       '<div style="font-size:12px;color:#667;margin-top:2px">Nº empleados: '+cliente.numEmpleados+'</div>';
@@ -2877,20 +2919,90 @@ function pintarVentas(v){
   html+='<div class="hint" style="margin-top:8px">Ventas hasta el '+v.ventasHasta+', comparadas con el mismo periodo del año anterior hasta el mismo día.</div>';
   cont.innerHTML=html;
 }
+/* ---------- Listas de la ficha: contactos, obras y comentarios (07/10/2026) ----------
+   Para que la ficha no se haga larga: contador en cada sección, se ven los 3
+   últimos con "Ver todos", buscador a partir de 6 elementos, obras finalizadas
+   recogidas aparte y formularios de añadir escondidos tras su botón.
+   Contactos: "Ya no trabaja aquí" los oculta SIN borrarlos (clientesInfo.contactosBaja). */
+const VISIBLES_FICHA=3;
+let fichaDatosListas=null;   // {obrasAuto, info}
+let fichaVerTodos={};
+function abrirSeccionFicha(seccion, abierta){
+  document.getElementById('cuerpo'+seccion).style.display = abierta ? '' : 'none';
+  document.getElementById('chev'+seccion).textContent = abierta ? '▾' : '▸';
+}
+window.toggleSeccionFicha = function toggleSeccionFicha(seccion){
+  abrirSeccionFicha(seccion, document.getElementById('cuerpo'+seccion).style.display==='none');
+}
+window.mostrarFormFicha = function mostrarFormFicha(seccion, mostrar){
+  const form=document.getElementById('form'+seccion);
+  const ver = mostrar===undefined ? form.style.display==='none' : mostrar;
+  form.style.display = ver ? '' : 'none';
+  document.getElementById('btnForm'+seccion).style.display = ver ? 'none' : '';
+  if(ver && mostrar===undefined){ const primero=form.querySelector('input,textarea'); if(primero) primero.focus(); }
+}
+window.verTodosFicha = function verTodosFicha(clave){ fichaVerTodos[clave]=!fichaVerTodos[clave]; pintarListasFicha(); }
+function claveContacto(c){ return encodeURIComponent((String(c.nombre||'').trim()+'|'+String(c.telefono||'').trim()).toLowerCase()); }
+function enlaceVerMas(clave, total, texto, textoMenos){
+  return '<div class="ver-mas-ficha" onclick="verTodosFicha(\''+clave+'\')">'+(fichaVerTodos[clave] ? (textoMenos||'Ver menos ▴') : texto)+'</div>';
+}
+function recortar(lista, clave, hayBusqueda){
+  return (hayBusqueda || fichaVerTodos[clave]) ? lista : lista.slice(0, VISIBLES_FICHA);
+}
 function pintarFicha(obrasAuto, info){
+  fichaDatosListas={obrasAuto:obrasAuto, info:info};
+  pintarListasFicha();
+}
+window.pintarListasFicha = function pintarListasFicha(){
+  if(!fichaDatosListas) return;
+  const obrasAuto=fichaDatosListas.obrasAuto, info=fichaDatosListas.info;
+
+  // ----- Contactos (los últimos añadidos primero; los dados de baja, ocultos) -----
+  const bajas=info.contactosBaja||{};
+  const todos=(info.contactos||[]).slice().reverse();
+  const activos=todos.filter(function(c){ return !bajas[claveContacto(c)]; });
+  const deBaja=todos.filter(function(c){ return !!bajas[claveContacto(c)]; });
+  document.getElementById('cntContactos').textContent = activos.length || '';
+  const bqC=document.getElementById('bqContactos');
+  bqC.style.display = activos.length>5 ? '' : 'none';
+  const tC=bqC.value.trim().toLowerCase();
+  const filtradosC=activos.filter(function(c){ return !tC || [c.nombre,c.cargo,c.telefono].join(' ').toLowerCase().includes(tC); });
   const contCont=document.getElementById('fichaContactos');
-  const contactos=info.contactos||[];
-  contCont.innerHTML = contactos.length ? '' : '<div class="hint">Sin contactos guardados.</div>';
-  contactos.forEach(function(c){
+  contCont.innerHTML = activos.length ? '' : '<div class="hint">Sin contactos guardados.</div>';
+  if(activos.length && !filtradosC.length) contCont.innerHTML='<div class="hint">Ningún contacto coincide con la búsqueda.</div>';
+  recortar(filtradosC, 'Contactos', !!tC).forEach(function(c){
     const card=document.createElement('div');
     card.className='visita-card';
     card.style.cssText='cursor:default;padding:12px 14px;margin-bottom:8px';
     card.innerHTML=
-      '<div style="display:flex;justify-content:space-between"><span style="font-weight:700;color:#1a1a2e">'+c.nombre+'</span>'+(c.cargo?'<span style="font-size:11px;color:#667">'+c.cargo+'</span>':'')+'</div>'+
-      (c.telefono?'<div style="font-size:13px;color:var(--bm-blue-mid);margin-top:2px">📞 '+c.telefono+'</div>':'');
+      '<div style="display:flex;justify-content:space-between;gap:8px"><span style="font-weight:700;color:#1a1a2e">'+escHtml(c.nombre)+'</span>'+(c.cargo?'<span style="font-size:11px;color:#667">'+escHtml(c.cargo)+'</span>':'')+'</div>'+
+      (c.telefono?'<div style="font-size:13px;color:var(--bm-blue-mid);margin-top:2px">📞 '+escHtml(c.telefono)+'</div>':'');
+    const baja=document.createElement('div');
+    baja.style.cssText='font-size:11px;color:#8a8fa3;margin-top:6px;cursor:pointer;text-decoration:underline';
+    baja.textContent='Ya no trabaja en esta empresa';
+    baja.onclick=function(){ darDeBajaContacto(c, true); };
+    card.appendChild(baja);
     contCont.appendChild(card);
   });
+  if(!tC && filtradosC.length>VISIBLES_FICHA) contCont.insertAdjacentHTML('beforeend', enlaceVerMas('Contactos', filtradosC.length, 'Ver los '+filtradosC.length+' contactos ▾'));
+  if(deBaja.length){
+    let html=enlaceVerMas('ContactosBaja', deBaja.length, '<span style="color:#8a8fa3;font-weight:400">'+deBaja.length+' contacto'+(deBaja.length===1?'':'s')+' dado'+(deBaja.length===1?'':'s')+' de baja ▸</span>', '<span style="color:#8a8fa3;font-weight:400">Ocultar contactos dados de baja ▴</span>');
+    if(fichaVerTodos.ContactosBaja){
+      html+=deBaja.map(function(c){
+        const b=bajas[claveContacto(c)];
+        return '<div style="padding:8px 12px;margin-bottom:6px;border:1px dashed #D5D8E0;border-radius:10px;color:#8a8fa3;font-size:12px">'+
+          '<b>'+escHtml(c.nombre)+'</b>'+(c.cargo?' · '+escHtml(c.cargo):'')+(c.telefono?' · '+escHtml(c.telefono):'')+
+          '<div style="font-size:11px">Dado de baja el '+(b.fecha||'').split('-').reverse().join('/')+(b.por?' · por '+escHtml(nombreLegible(b.por)):'')+
+          ' · <span style="color:var(--bm-blue-mid);cursor:pointer;text-decoration:underline" data-clave="'+claveContacto(c)+'" class="reactivar-contacto">Recuperar</span></div></div>';
+      }).join('');
+    }
+    contCont.insertAdjacentHTML('beforeend', html);
+    contCont.querySelectorAll('.reactivar-contacto').forEach(function(el){
+      el.onclick=function(){ const c=deBaja.find(function(x){ return claveContacto(x)===el.dataset.clave; }); if(c) darDeBajaContacto(c, false); };
+    });
+  }
 
+  // ----- Obras: abiertas visibles; finalizadas recogidas -----
   const obrasCont=document.getElementById('fichaObras');
   obrasCont.innerHTML='';
   const obrasManual=info.obrasManual||[];
@@ -2898,9 +3010,15 @@ function pintarFicha(obrasAuto, info){
   const todasObras=obrasAuto.concat(obrasManual.filter(function(o){ return !nombresAuto.has((o.nombre||'').toLowerCase()); }));
   const estados=info.estadoObras||{};
   const finalizada=function(o){ const e=estados[claveObra(o.nombre)]; return !!(e && e.estado==='Finalizada'); };
-  todasObras.sort(function(a,b){ return (finalizada(a)?1:0)-(finalizada(b)?1:0); });  // abiertas primero
-  if(!todasObras.length){ obrasCont.innerHTML='<div class="hint">Sin obras registradas.</div>'; }
-  todasObras.forEach(function(o){
+  const bqO=document.getElementById('bqObras');
+  bqO.style.display = todasObras.length>5 ? '' : 'none';
+  const tO=bqO.value.trim().toLowerCase();
+  const coincide=function(o){ return !tO || [o.nombre,o.direccion].join(' ').toLowerCase().includes(tO); };
+  const abiertas=todasObras.filter(function(o){ return !finalizada(o); });
+  const cerradas=todasObras.filter(finalizada);
+  document.getElementById('cntObras').textContent = abiertas.length ? abiertas.length+' abierta'+(abiertas.length===1?'':'s') : (cerradas.length?'0 abiertas':'');
+  if(!todasObras.length) obrasCont.innerHTML='<div class="hint">Sin obras registradas.</div>';
+  const pintarObra=function(o){
     const esAuto=nombresAuto.has((o.nombre||'').toLowerCase());
     const fin=finalizada(o);
     const e=estados[claveObra(o.nombre)];
@@ -2932,19 +3050,47 @@ function pintarFicha(obrasAuto, info){
     };
     card.appendChild(btn);
     obrasCont.appendChild(card);
-  });
+  };
+  const abiertasF=abiertas.filter(coincide);
+  if(abiertas.length && !abiertasF.length && tO) obrasCont.insertAdjacentHTML('beforeend','<div class="hint">Ninguna obra abierta coincide con la búsqueda.</div>');
+  recortar(abiertasF, 'Obras', !!tO).forEach(pintarObra);
+  if(!tO && abiertasF.length>VISIBLES_FICHA) obrasCont.insertAdjacentHTML('beforeend', enlaceVerMas('Obras', abiertasF.length, 'Ver las '+abiertasF.length+' obras abiertas ▾'));
+  const cerradasF=cerradas.filter(coincide);
+  if(cerradasF.length){
+    const abrirFin = fichaVerTodos.ObrasFin || !!tO;
+    obrasCont.insertAdjacentHTML('beforeend', tO ? '<div class="hint" style="margin:4px 0">Finalizadas:</div>' :
+      enlaceVerMas('ObrasFin', cerradasF.length, '<span style="color:#667">■ Ver '+cerradasF.length+' obra'+(cerradasF.length===1?'':'s')+' finalizada'+(cerradasF.length===1?'':'s')+' ▸</span>', '<span style="color:#667">Ocultar obras finalizadas ▴</span>'));
+    if(abrirFin) cerradasF.forEach(pintarObra);
+  }
 
+  // ----- Comentarios (los más recientes primero) -----
   const comCont=document.getElementById('fichaComentarios');
   const comentarios=(info.comentarios||[]).slice().sort(function(a,b){ return (b.fecha||'').localeCompare(a.fecha||''); });
+  document.getElementById('cntComentarios').textContent = comentarios.length || '';
   comCont.innerHTML = comentarios.length ? '' : '<div class="hint">Sin comentarios todavía.</div>';
-  comentarios.forEach(function(c){
+  recortar(comentarios, 'Comentarios', false).forEach(function(c){
     const item=document.createElement('div');
     item.style.cssText='border-left:3px solid var(--bm-blue-light);padding:4px 0 4px 10px;margin-bottom:10px';
     item.innerHTML=
-      '<div style="font-size:11px;color:#8a8fa3">'+(c.fecha||'')+' · '+(c.comercial||'')+'</div>'+
-      '<div style="font-size:13px;color:#333;margin-top:2px">'+c.texto+'</div>';
+      '<div style="font-size:11px;color:#8a8fa3">'+escHtml(c.fecha||'')+' · '+escHtml(c.comercial||'')+'</div>'+
+      '<div style="font-size:13px;color:#333;margin-top:2px">'+escHtml(c.texto)+'</div>';
     comCont.appendChild(item);
   });
+  if(comentarios.length>VISIBLES_FICHA) comCont.insertAdjacentHTML('beforeend', enlaceVerMas('Comentarios', comentarios.length, 'Ver los '+comentarios.length+' comentarios ▾'));
+}
+async function darDeBajaContacto(c, baja){
+  if(baja && !confirm('¿Marcar a «'+c.nombre+'» como que ya no trabaja en esta empresa?\n\nDejará de mostrarse en la ficha, pero no se borra: queda guardado y se puede recuperar.')) return;
+  const cambio={contactosBaja:{}};
+  cambio.contactosBaja[claveContacto(c)] = baja
+    ? {nombre:c.nombre, fecha:hoyLocal(), por:comercialActual?comercialActual.nombre:'', porId:comercialActual?comercialActual.id:''}
+    : deleteField();
+  try{
+    await conTimeout(setDoc(doc(db,'clientesInfo',fichaPartnerActual), cambio, {merge:true}));
+    showStatus(baja ? 'Contacto dado de baja. Ya no se mostrará en la ficha.' : 'Contacto recuperado.', 'ok');
+    window.verFichaCliente();
+  }catch(err){
+    console.error(err); showStatus('Error al guardar: '+err.message, 'err');
+  }
 }
 
 window.anadirContacto = async function anadirContacto(){
