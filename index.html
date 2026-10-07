@@ -408,8 +408,17 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
         </div>
         <div class="field"><label>¿Obra activa?</label>
           <div class="radio-group">
-            <label class="radio-btn" for="cv_oa_si"><input type="radio" name="cv_obra_activa" id="cv_oa_si" value="Sí"><span>Sí</span></label>
-            <label class="radio-btn" for="cv_oa_no"><input type="radio" name="cv_obra_activa" id="cv_oa_no" value="No"><span>No</span></label>
+            <label class="radio-btn" for="cv_oa_si"><input type="radio" name="cv_obra_activa" id="cv_oa_si" value="Sí" onchange="manejarObraActiva('Sí')"><span>Sí</span></label>
+            <label class="radio-btn" for="cv_oa_no"><input type="radio" name="cv_obra_activa" id="cv_oa_no" value="No" onchange="manejarObraActiva('No')"><span>No</span></label>
+          </div>
+          <div id="cv_finalizar_obra_prompt" style="display:none;background:var(--bm-amber-light);border-radius:8px;padding:12px;margin-top:10px">
+            <div style="font-size:13px;font-weight:700;color:var(--bm-amber)">¿Desea dar por finalizada la obra «<span id="cv_finalizar_obra_nombre"></span>»?</div>
+            <div style="font-size:12px;color:#667;margin-top:4px">Una obra finalizada deja de proponerse al planificar nuevas visitas. Podrá reabrirla en cualquier momento desde la ficha del cliente.</div>
+            <div style="display:flex;gap:8px;margin-top:10px">
+              <button type="button" class="secondary-btn" style="border-color:var(--bm-blue-mid);color:var(--bm-blue);font-weight:700" onclick="elegirFinalizarObra(true)">Sí, finalizar obra</button>
+              <button type="button" class="secondary-btn" onclick="elegirFinalizarObra(false)">No, mantener abierta</button>
+            </div>
+            <div id="cv_finalizar_obra_eleccion" class="hint" style="margin-top:6px"></div>
           </div>
         </div>
         <div class="field">
@@ -1192,7 +1201,8 @@ async function cargarObrasCliente(partner){
   document.getElementById('nv_obra_hint').textContent='Buscando obras ya registradas de este cliente...';
   try{
     const q=query(collection(db,'visitas'), where('clientePartner','==',partner));
-    const snap=await getDocs(q);
+    const [snap, snapInfo]=await Promise.all([getDocs(q), getDoc(doc(db,'clientesInfo',partner)).catch(function(){ return null; })]);
+    const estados=(snapInfo && snapInfo.exists() && snapInfo.data().estadoObras) || {};
     const vistas=new Set();
     snap.forEach(function(d){
       const v=d.data();
@@ -1200,6 +1210,8 @@ async function cargarObrasCliente(partner){
       if(!nombre) return;
       const clave=nombre.toLowerCase();
       if(vistas.has(clave)) return;
+      const est=estados[claveObra(nombre)];
+      if(est && est.estado==='Finalizada'){ vistas.add(clave); return; }  // obra finalizada: no se sugiere
       vistas.add(clave);
       obrasClienteActual.push({nombreObra:nombre, direccionObra:v.direccionObra||''});
     });
@@ -2103,8 +2115,36 @@ function limpiarCompletar(){
   document.getElementById('cv_reprogramar_prompt').style.display='none';
   document.getElementById('cv_franjas_proxima_container').innerHTML='';
   franjaProximaSeleccionada='';
+  finalizarObraAlGuardar=false;
+  document.getElementById('cv_finalizar_obra_prompt').style.display='none';
+  document.getElementById('cv_finalizar_obra_eleccion').textContent='';
   const hintVolumen=document.getElementById('cv_volumen_hint');
   if(hintVolumen) hintVolumen.remove();
+}
+/* Estado de las obras (07/10/2026): al marcar "¿Obra activa? No" se pregunta si
+   se da la obra por finalizada; la decisión se aplica al guardar la visita. */
+let finalizarObraAlGuardar=false;
+window.manejarObraActiva = function manejarObraActiva(valor){
+  const prompt=document.getElementById('cv_finalizar_obra_prompt');
+  const obra=visitaActual && (visitaActual.nombreObra||'').trim();
+  finalizarObraAlGuardar=false;
+  document.getElementById('cv_finalizar_obra_eleccion').textContent='';
+  if(valor!=='No' || !obra){ prompt.style.display='none'; return; }
+  document.getElementById('cv_finalizar_obra_nombre').textContent=obra;
+  prompt.style.display='';
+}
+window.elegirFinalizarObra = function elegirFinalizarObra(si){
+  finalizarObraAlGuardar=si;
+  document.getElementById('cv_finalizar_obra_eleccion').textContent = si
+    ? '✓ La obra se marcará como finalizada al guardar la visita.'
+    : 'La obra seguirá abierta. Podrá finalizarla más adelante desde la ficha del cliente.';
+}
+function claveObra(nombre){ return encodeURIComponent(String(nombre||'').trim().toLowerCase()); }
+async function guardarEstadoObra(partner, nombreObra, finalizada){
+  const valor={estado: finalizada ? 'Finalizada' : 'Abierta', nombre:nombreObra, fecha:hoyLocal(),
+    por:comercialActual?comercialActual.nombre:'', porId:comercialActual?comercialActual.id:''};
+  const cambio={estadoObras:{}}; cambio.estadoObras[claveObra(nombreObra)]=valor;
+  await conTimeout(setDoc(doc(db,'clientesInfo',partner), cambio, {merge:true}));
 }
 window.manejarCambioEstado = function manejarCambioEstado(estado){
   document.getElementById('cv_reprogramar_prompt').style.display =
@@ -2233,6 +2273,8 @@ window.guardarCompletarVisita = async function guardarCompletarVisita(){
       actualizadoEn:serverTimestamp()
     };
     await conTimeout(updateDoc(doc(db,'visitas',visitaActual.id), cambios));
+    const obraFinalizada = finalizarObraAlGuardar && getRadio('cv_obra_activa')==='No' && visitaActual.clientePartner && visitaActual.nombreObra;
+    if(obraFinalizada) await guardarEstadoObra(visitaActual.clientePartner, visitaActual.nombreObra.trim(), true);
     if(f('cv_fecha_proxima')){
       await conTimeout(addDoc(collection(db,'visitas'), {
         comercialId:visitaActual.comercialId, comercialNombre:visitaActual.comercialNombre,
@@ -2249,7 +2291,8 @@ window.guardarCompletarVisita = async function guardarCompletarVisita(){
         creadoEn:serverTimestamp(), actualizadoEn:serverTimestamp()
       }));
     }
-    showStatus('Visita guardada y cerrada.', 'ok');
+    showStatus(obraFinalizada ? 'Visita guardada y cerrada. Obra marcada como finalizada.' : 'Visita guardada y cerrada.', 'ok');
+    finalizarObraAlGuardar=false;
     completarUltimoId=null;
     irA('rutero', false);
   }catch(err){
@@ -2327,9 +2370,29 @@ window.verHistorialCliente = async function verHistorialCliente(){
 }
 
 /* ---------- ficha del cliente (CRM) ---------- */
+/* Borradores de la ficha (contacto, obra, comentario sin guardar), uno por
+   comercial + cliente. Antes los campos se quedaban rellenos y aparecían en la
+   ficha del siguiente cliente, aunque se cambiara de comercial (fallo
+   detectado por Rossy 07/10/2026). */
+const CAMPOS_BORRADOR_FICHA=['fc_nombre','fc_cargo','fc_telefono','fo_nombre','fo_direccion','fc_comentario'];
+const borradoresFicha={};
+let claveBorradorFicha=null;
+function guardarBorradorFicha(){
+  if(!claveBorradorFicha) return;
+  const b={}; let alguno=false;
+  CAMPOS_BORRADOR_FICHA.forEach(function(id){ b[id]=document.getElementById(id).value; if(b[id]) alguno=true; });
+  if(alguno) borradoresFicha[claveBorradorFicha]=b; else delete borradoresFicha[claveBorradorFicha];
+}
+function cargarBorradorFicha(clave){
+  const b=borradoresFicha[clave]||{};
+  CAMPOS_BORRADOR_FICHA.forEach(function(id){ document.getElementById(id).value=b[id]||''; });
+  claveBorradorFicha=clave;
+}
 window.verFichaCliente = async function verFichaCliente(){
   const partner=f('nv_partner');
   if(!partner) return;
+  guardarBorradorFicha();
+  cargarBorradorFicha((comercialActual?comercialActual.id:'')+'|'+partner);
   fichaPartnerActual=partner;
   const razon=f('nv_cliente');
   irA('ficha');
@@ -2781,6 +2844,10 @@ function pintarVentas(v){
   const tickets=v['tickets'+periodoVentas];
   const ticketsN1=v['tickets'+periodoVentas+'N1'];
   const variacionTickets=v['variacionTickets'+periodoVentas+'Pct'];
+  // Compra media = venta / tickets del periodo (07/10/2026, sustituye a la tarjeta de margen €)
+  const compraMedia = tickets>0 ? venta/tickets : null;
+  const compraMediaN1 = ticketsN1>0 ? ventaN1/ticketsN1 : null;
+  const variacionCompraMedia = (compraMedia!=null && compraMediaN1>0) ? Math.round((compraMedia-compraMediaN1)/compraMediaN1*1000)/10 : null;
   function pctHtml(p, sufijo){
     if(p==null) return '';
     const col=p<0?'var(--bm-red)':'var(--bm-green)';
@@ -2797,7 +2864,7 @@ function pintarVentas(v){
   html+='<div style="display:flex;gap:8px">'+
     tile('Venta', formatEurosCorto(venta), ['año ant.: '+formatEurosCorto(ventaN1), pctHtml(variacion)])+
     tile('Tickets', tickets!=null ? String(tickets).replace(/\B(?=(\d{3})+(?!\d))/g,'.') : '—', [ticketsN1!=null ? 'año ant.: '+ticketsN1 : '', pctHtml(variacionTickets)])+
-    tile('Margen', formatEurosCorto(margen), [margenPct!=null ? 'mg '+margenPct.toLocaleString('es-ES')+'%' : ''])+
+    tile('Compra media', compraMedia!=null ? formatEurosCorto(compraMedia) : '—', [compraMediaN1!=null ? 'año ant.: '+formatEurosCorto(compraMediaN1) : '', pctHtml(variacionCompraMedia), margenPct!=null ? 'mg '+margenPct.toLocaleString('es-ES')+'%' : ''])+
     '</div>';
   html+='<div style="font-size:12px;color:#667;margin-top:10px">Tendencia del año: <span style="font-weight:700;color:'+t.color+'">'+t.txt+'</span></div>';
   if(v.serieMensual && v.serieMensual.length){
@@ -2830,16 +2897,41 @@ function pintarFicha(obrasAuto, info){
   const obrasManual=info.obrasManual||[];
   const nombresAuto=new Set(obrasAuto.map(function(o){ return o.nombre.toLowerCase(); }));
   const todasObras=obrasAuto.concat(obrasManual.filter(function(o){ return !nombresAuto.has((o.nombre||'').toLowerCase()); }));
+  const estados=info.estadoObras||{};
+  const finalizada=function(o){ const e=estados[claveObra(o.nombre)]; return !!(e && e.estado==='Finalizada'); };
+  todasObras.sort(function(a,b){ return (finalizada(a)?1:0)-(finalizada(b)?1:0); });  // abiertas primero
   if(!todasObras.length){ obrasCont.innerHTML='<div class="hint">Sin obras registradas.</div>'; }
   todasObras.forEach(function(o){
     const esAuto=nombresAuto.has((o.nombre||'').toLowerCase());
+    const fin=finalizada(o);
+    const e=estados[claveObra(o.nombre)];
+    const chip = fin
+      ? '<span style="flex-shrink:0;font-size:10px;font-weight:700;padding:2px 8px;border-radius:9px;background:#F1F2F5;color:#555">■ Finalizada</span>'
+      : '<span style="flex-shrink:0;font-size:10px;font-weight:700;padding:2px 8px;border-radius:9px;background:#E6F4EA;color:var(--bm-green-dark)">● Abierta</span>';
     const card=document.createElement('div');
     card.className='visita-card';
-    card.style.cssText='cursor:default;padding:12px 14px;margin-bottom:8px';
+    card.style.cssText='cursor:default;padding:12px 14px;margin-bottom:8px'+(fin?';background:#FAFAFB':'');
     card.innerHTML=
-      '<div style="font-weight:700;color:#1a1a2e">'+o.nombre+'</div>'+
-      (o.direccion?'<div style="font-size:12px;color:#667;margin-top:2px">'+o.direccion+'</div>':'')+
+      '<div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start"><div style="font-weight:700;color:'+(fin?'#667':'#1a1a2e')+'">'+escHtml(o.nombre)+'</div>'+chip+'</div>'+
+      (o.direccion?'<div style="font-size:12px;color:#667;margin-top:2px">'+escHtml(o.direccion)+'</div>':'')+
+      (fin&&e?'<div style="font-size:11px;color:#8a8fa3;margin-top:2px">Finalizada el '+(e.fecha||'').split('-').reverse().join('/')+(e.por?' · por '+escHtml(nombreLegible(e.por)):'')+'</div>':'')+
       (esAuto?'<span class="todo-tag" style="margin-left:0;margin-top:4px;display:inline-block">Detectada en visitas</span>':'');
+    const btn=document.createElement('button');
+    btn.type='button';
+    btn.className='secondary-btn';
+    btn.style.cssText='display:block;width:auto;margin-top:8px;padding:6px 12px;font-size:12px'+(fin?'':';border-color:var(--bm-blue-mid);color:var(--bm-blue);font-weight:700');
+    btn.textContent = fin ? '↺ Reabrir obra' : '✓ Marcar finalizada';
+    btn.onclick=async function(){
+      btn.disabled=true;
+      try{
+        await guardarEstadoObra(fichaPartnerActual, o.nombre, !fin);
+        showStatus(fin ? 'Obra reabierta.' : 'Obra marcada como finalizada.', 'ok');
+        window.verFichaCliente();
+      }catch(err){
+        console.error(err); showStatus('Error al guardar: '+err.message, 'err'); btn.disabled=false;
+      }
+    };
+    card.appendChild(btn);
     obrasCont.appendChild(card);
   });
 
