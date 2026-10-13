@@ -846,18 +846,44 @@ function requireComercial(){
 }
 
 /* ---------- comerciales ---------- */
-async function cargarComerciales(){
-  const sel=document.getElementById('comercial');
+/* La lista de comerciales casi no cambia: se guarda en el móvil y se lee de
+   Firebase una vez al día (13/10/2026). Si alguien escribe un PLT que no está
+   en la lista guardada (p. ej. alta de hoy), se vuelve a leer al momento. */
+const COMERCIALES_LS='rutero_comerciales';
+async function leerComerciales(forzar){
+  const hoy=hoyLocal();
+  if(!forzar){
+    try{
+      const g=JSON.parse(localStorage.getItem(COMERCIALES_LS)||'null');
+      if(g && g.dia===hoy && Array.isArray(g.lista) && g.lista.length) return g.lista;
+    }catch(e){}
+  }
   const snap=await getDocs(collection(db,'comerciales'));
+  const lista=[];
+  snap.forEach(function(d){ lista.push({id:d.id, d:d.data()}); });  // campos simples (nombre, categoría, región...)
+  try{ localStorage.setItem(COMERCIALES_LS, JSON.stringify({dia:hoy, lista:lista})); }catch(e){}
+  return lista;
+}
+function snapDeComerciales(lista){
+  // misma forma que un resultado de getDocs (forEach con d.id y d.data())
+  return {forEach:function(fn){ lista.forEach(function(x){ fn({id:x.id, data:function(){ return x.d; }}); }); }};
+}
+function aplicarComerciales(lista){
+  const sel=document.getElementById('comercial');
+  Array.from(sel.options).forEach(function(o){ if(o.value) o.remove(); });
   const opts=[];
-  snap.forEach(function(d){
-    const c=d.data();
-    comercialesPorId[d.id]={nombre:c.nombre||d.id, esSupervisor:!!c.esSupervisor, activo:c.activo!==false};
+  lista.forEach(function(x){
+    const c=x.d;
+    comercialesPorId[x.id]={nombre:c.nombre||x.id, esSupervisor:!!c.esSupervisor, activo:c.activo!==false};
     if(c.activo===false) return;
-    opts.push({id:d.id,nombre:c.nombre||d.id});
+    opts.push({id:x.id,nombre:c.nombre||x.id});
   });
   opts.sort((a,b)=>a.nombre.localeCompare(b.nombre));
   opts.forEach(function(o){ const opt=document.createElement('option'); opt.value=o.id; opt.textContent=o.nombre; sel.appendChild(opt); });
+}
+async function cargarComerciales(){
+  const sel=document.getElementById('comercial');
+  aplicarComerciales(await leerComerciales(false));
   sel.addEventListener('change', function(){
     const opt=sel.options[sel.selectedIndex];
     comercialActual = sel.value ? {id:sel.value, nombre:opt.textContent, esSupervisor:!!(comercialesPorId[sel.value]||{}).esSupervisor} : null;
@@ -865,10 +891,14 @@ async function cargarComerciales(){
 }
 
 /* ---------- bienvenida / identificación ---------- */
-window.continuarBienvenidaPLT = function continuarBienvenidaPLT(){
+window.continuarBienvenidaPLT = async function continuarBienvenidaPLT(){
   const plt=f('bv_plt').toUpperCase();
   const errorEl=document.getElementById('bv_plt_error');
   if(!plt){ errorEl.textContent='Escribe tu código PLT.'; return; }
+  if(!comercialesPorId[plt]){
+    // puede ser un alta de hoy que aún no está en la lista guardada en el móvil
+    try{ aplicarComerciales(await leerComerciales(true)); }catch(err){ console.error(err); }
+  }
   const info=comercialesPorId[plt];
   if(!info || info.activo===false){
     errorEl.textContent='No encontramos ese código. Revisa que esté bien escrito o busca tu nombre en la lista.';
@@ -1878,7 +1908,7 @@ async function cargarSupervision(){
 
   let comercialesSnap, visitasSnap;
   try{
-    comercialesSnap = await getDocs(collection(db,'comerciales'));
+    comercialesSnap = snapDeComerciales(await leerComerciales(false));
     const q=query(collection(db,'visitas'), where('fechaVisita','>=',inicio), where('fechaVisita','<=',fin));
     visitasSnap = await getDocs(q);
   }catch(err){
@@ -2181,6 +2211,11 @@ window.irAReprogramar = function irAReprogramar(){
   campo.focus();
 }
 window.irANoReprogramar = function irANoReprogramar(){
+  // Si antes eligió "Sí, planificar" y marcó fecha, se deshace: sin fecha ni franjas
+  // (si no, al guardar se crearía igualmente la nueva visita planificada).
+  document.getElementById('cv_fecha_proxima').value='';
+  document.getElementById('cv_franjas_proxima_container').innerHTML='';
+  franjaProximaSeleccionada='';
   const campo=document.getElementById('cv_comentarios');
   campo.scrollIntoView({behavior:'smooth', block:'center'});
   campo.focus();
@@ -2437,7 +2472,7 @@ window.verFichaCliente = async function verFichaCliente(){
 
   let cliente=null;
   try{
-    const snapCliente=await getDoc(doc(db,'clientes',partner));
+    const snapCliente=await getDocDiario('clientes',partner);
     if(snapCliente.exists()) cliente=snapCliente.data();
   }catch(err){ console.error(err); }
   if(cliente && cliente.estadoErp){
@@ -2462,7 +2497,7 @@ window.verFichaCliente = async function verFichaCliente(){
   document.getElementById('fichaVentas').innerHTML='Cargando...';
   let ventas=null;
   try{
-    const snapVentas=await getDoc(doc(db,'clientesVentas',partner));
+    const snapVentas=await getDocDiario('clientesVentas',partner);
     if(snapVentas.exists()) ventas=snapVentas.data();
   }catch(err){ console.error(err); }
   pintarVentas(ventas);
@@ -2492,6 +2527,21 @@ window.verFichaCliente = async function verFichaCliente(){
   pintarFicha(obrasAuto, info);
 }
 
+/* Ficha del cliente (13/10/2026): los datos del ERP (cliente, saldos, ventas) solo
+   cambian con el importador de cada mañana, así que al volver a una ficha ya
+   abierta se reutilizan durante 30 minutos. Visitas, contactos, obras y
+   comentarios se leen siempre en vivo. */
+const cacheFichaErp={};
+async function getDocDiario(coleccion, id){
+  const clave=coleccion+'/'+id;
+  const g=cacheFichaErp[clave];
+  if(g && Date.now()-g.t<30*60*1000) return g.snap;
+  const s=await getDoc(doc(db,coleccion,id));
+  const datos=s.exists()?s.data():null;
+  const snap={exists:function(){ return datos!==null; }, data:function(){ return datos; }};
+  cacheFichaErp[clave]={t:Date.now(), snap:snap};
+  return snap;
+}
 function formatEuros(n){
   return Number(n||0).toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2})+' €';
 }
@@ -2618,23 +2668,63 @@ function nombreLegible(n){
   // "LLAMAS, JAVIER" -> "Llamas, Javier"
   return String(n||'').toLowerCase().replace(/(^|[\s,(.-])(\p{L})/gu, function(m,a,b){ return a+b.toUpperCase(); });
 }
-async function cargarDatosCartera(id){
-  let snapClientes, snapVisitas;
+/* Caché de la cartera (13/10/2026, acordado con Rossy). El importador de las 9:15
+   deja en carteras/{PLT} los clientes del comercial con saldos y ventas del día:
+   1 lectura en lugar de ~60 peticiones. El móvil la guarda y la reutiliza todo el
+   día; si la guardada es de un día anterior (aún no se ha generado la de hoy),
+   vuelve a mirar cada 30 minutos. Si no existe (p. ej. comercial recién dado de
+   alta), se carga como antes, cliente a cliente. */
+const CARTERA_LS='rutero_cartera_';
+async function leerCarteraPrecalculada(id){
+  const hoy=hoyLocal();
+  let guardada=null;
+  try{ guardada=JSON.parse(localStorage.getItem(CARTERA_LS+id)||'null'); }catch(e){ guardada=null; }
+  if(guardada && guardada.d){
+    if((guardada.d.generadoEn||'').slice(0,10)===hoy) return guardada.d;
+    if(guardada.leidoDia===hoy && Date.now()-guardada.leidoEn<30*60*1000) return guardada.d;
+  }
   try{
+    const s=await getDoc(doc(db,'carteras',id));
+    if(!s.exists()) return null;
+    const d=s.data();
+    const valor=JSON.stringify({leidoEn:Date.now(), leidoDia:hoy, d:d});
+    try{ localStorage.setItem(CARTERA_LS+id, valor); }
+    catch(e){
+      // Sin espacio (p. ej. un supervisor que ha abierto muchas carteras): se borran las guardadas y se reintenta
+      try{
+        Object.keys(localStorage).filter(function(k){ return k.indexOf(CARTERA_LS)===0; }).forEach(function(k){ localStorage.removeItem(k); });
+        localStorage.setItem(CARTERA_LS+id, valor);
+      }catch(e2){}
+    }
+    return d;
+  }catch(err){
+    console.error(err);
+    return guardada && guardada.d ? guardada.d : null;  // sin conexión: mejor la de ayer que nada
+  }
+}
+async function cargarDatosCartera(id){
+  const hoy=new Date(); hoy.setHours(0,0,0,0);
+  const isoDe=function(f){ return f.getFullYear()+'-'+String(f.getMonth()+1).padStart(2,'0')+'-'+String(f.getDate()).padStart(2,'0'); };
+  const hoyIso=isoDe(hoy);
+  // Visitas acotadas a los últimos 12 meses (las alertas miran 30/60 días); el
+  // historial completo sigue en la ficha del cliente.
+  const haceUnAno=new Date(hoy); haceUnAno.setFullYear(haceUnAno.getFullYear()-1);
+  const desdeVisitas=isoDe(haceUnAno);
+  let pre, snapClientes, snapVisitas;
+  try{
+    pre=await leerCarteraPrecalculada(id);
     [snapClientes, snapVisitas]=await Promise.all([
-      getDocs(query(collection(db,'clientes'), where('plt','==',id))),
-      getDocs(query(collection(db,'visitas'), where('comercialId','==',id)))
+      pre ? null : getDocs(query(collection(db,'clientes'), where('plt','==',id))),
+      getDocs(query(collection(db,'visitas'), where('comercialId','==',id), where('fechaVisita','>=',desdeVisitas)))
     ]);
   }catch(err){
     console.error(err);
     document.getElementById('carteraResumen').textContent='Error cargando la cartera: '+err.message;
     return null;
   }
-  const hoy=new Date(); hoy.setHours(0,0,0,0);
-  const isoDe=function(f){ return f.getFullYear()+'-'+String(f.getMonth()+1).padStart(2,'0')+'-'+String(f.getDate()).padStart(2,'0'); };
-  const hoyIso=isoDe(hoy);
   const clientes=[];
-  snapClientes.forEach(function(d){ clientes.push({partner:d.id, c:d.data()}); });
+  if(pre) (pre.clientes||[]).forEach(function(x){ clientes.push({partner:x.partner, c:x.c||{}, vPre:x.v||null}); });
+  else snapClientes.forEach(function(d){ clientes.push({partner:d.id, c:d.data()}); });
   const enCartera=new Set(clientes.map(function(x){ return x.partner; }));
 
   // Trazabilidad (01/10/2026, acordado con Rossy): la última visita de un cliente
@@ -2645,7 +2735,7 @@ async function cargarDatosCartera(id){
   const lotes=[];
   for(let i=0;i<clientes.length;i+=30) lotes.push(clientes.slice(i,i+30).map(function(x){ return x.partner; }));
   try{
-    const snaps=await Promise.all(lotes.map(function(l){ return getDocs(query(collection(db,'visitas'), where('clientePartner','in',l))); }));
+    const snaps=await Promise.all(lotes.map(function(l){ return getDocs(query(collection(db,'visitas'), where('clientePartner','in',l), where('fechaVisita','>=',desdeVisitas), orderBy('fechaVisita','desc'))); }));
     snaps.forEach(function(sn){ sn.forEach(function(d){ visitasCartera.push(d.data()); }); });
   }catch(err){
     console.error(err);
@@ -2682,7 +2772,7 @@ async function cargarDatosCartera(id){
       }
     }).catch(function(){});
   }));
-  const ventas=await Promise.all(clientes.map(function(x){
+  const ventas=pre ? clientes.map(function(x){ const v=x.vPre; delete x.vPre; return v; }) : await Promise.all(clientes.map(function(x){
     return getDoc(doc(db,'clientesVentas',x.partner)).then(function(s){ return s.exists()?s.data():null; }).catch(function(){ return null; });
   }));
   clientes.forEach(function(x, i){
@@ -2707,7 +2797,7 @@ async function cargarDatosCartera(id){
     x.usoCredito=usoCredito;
     x.prioridad=ALERTAS_CARTERA.reduce(function(t,a){ return t+(x.alertas[a.id]?a.peso:0); }, 0);
   });
-  carteraCache[id]={id:id, cargadoEn:Date.now(), clientes:clientes, ventasHasta:(ventas.find(Boolean)||{}).ventasHasta||'',
+  carteraCache[id]={id:id, cargadoEn:Date.now(), clientes:clientes, ventasHasta:(pre && pre.ventasHasta) || (ventas.find(Boolean)||{}).ventasHasta||'',
     visitasDeCompaneros:visitasDeCompaneros, atendidosAjenos:atendidosAjenos};
   return carteraCache[id];
 }
@@ -2760,7 +2850,7 @@ window.pintarCartera = function pintarCartera(){
       cifra='<div style="font-size:14px;font-weight:700;color:#1a1a2e">'+formatEurosCorto(venta(x))+'</div>'+
         (p!=null?'<div style="font-size:11px;font-weight:700;color:'+(p<0?'var(--bm-red)':'var(--bm-green)')+'">'+(p>0?'+':'')+p.toLocaleString('es-ES')+'%</div>':'');
     }
-    const visita = (x.dias==null ? 'Sin visitas registradas' : (x.dias===0 ? 'Visitado hoy' : 'Última visita hace '+x.dias+' día'+(x.dias===1?'':'s')))+
+    const visita = (x.dias==null ? 'Sin visitas en el último año' : (x.dias===0 ? 'Visitado hoy' : 'Última visita hace '+x.dias+' día'+(x.dias===1?'':'s')))+
       (x.visitaDeCompanero ? ' · por '+escHtml(nombreLegible(x.visitaDeCompanero)) : '');
     // Año solo si la compra no es de este año (si no, "16/09" confunde una compra de hace un año con una reciente)
     const compra = v && v.ultimaCompra ? ' · compra '+(v.ultimaCompra.slice(6)===String(new Date().getFullYear()) ? v.ultimaCompra.slice(0,5) : v.ultimaCompra) : '';
