@@ -1602,9 +1602,37 @@ function crearVisitaCard(v, soloLectura){
     '<div class="top"><span class="cliente">'+(v.clienteRazonSocial||'')+'</span><span class="badge '+v.estadoVisita+'">'+v.estadoVisita+'</span></div>'+
     '<div class="fecha">'+(v.franjaHoraria||'Sin franja')+'</div>'+
     '<div class="obra">'+(v.nombreObra||'')+'</div>';
-  if(soloLectura) card.style.cursor='default';
+  if(soloLectura) card.onclick=function(){ verVisitaSoloLectura(v); };
   else card.onclick=function(){ visitaActual=v; irA('completar'); };
   return card;
+}
+/* Ficha de una visita en solo lectura (14/10/2026, petición de Rossy): desde la
+   agenda de un comercial en Supervisión se puede consultar la visita sin editarla. */
+function verVisitaSoloLectura(v){
+  const fecha=function(x){ return x ? String(x).slice(8,10)+'/'+String(x).slice(5,7)+'/'+String(x).slice(0,4) : ''; };
+  const filas=[
+    ['Comercial', v.comercialNombre ? nombreLegible(v.comercialNombre) : ''],
+    ['Fecha', fecha(v.fechaVisita)+(v.franjaHoraria ? ' · '+v.franjaHoraria : '')],
+    ['Estado', v.estadoVisita],
+    ['Motivo', v.motivoVisita],
+    ['Prioridad', v.prioridad],
+    ['Tipo de visita', v.tipoVisita],
+    ['Obra', v.nombreObra],
+    ['Dirección', v.direccionObra],
+    ['¿Obra activa?', v.obraActiva===true ? 'Sí' : (v.obraActiva===false ? 'No' : (v.obraActiva||''))],
+    ['Fase de obra', v.faseObra],
+    ['Volumen de obra', v.volumenObra],
+    ['Fecha realizada', fecha(v.fechaRealizada)],
+    ['Resultado', v.resultadoVisita],
+    ['Importe pedido', v.importePedido ? Number(v.importePedido).toLocaleString('es-ES',{maximumFractionDigits:2})+' €' : ''],
+    ['Necesidad detectada', v.necesidadDetectada],
+    ['Próxima acción', [v.proximaAccion, fecha(v.fechaProximaAccion)].filter(Boolean).join(' · ')],
+    ['Comentarios', v.comentarios]
+  ].filter(function(x){ return x[1]!=null && String(x[1]).trim()!==''; });
+  mostrarInfoModal(
+    '<h3>'+escHtml(v.clienteRazonSocial||v.clientePartner||'Visita')+'</h3>'+
+    '<div class="hint" style="margin-top:-6px">Partner '+escHtml(v.clientePartner||'')+' · solo lectura</div>'+
+    '<table>'+filas.map(function(x){ return '<tr><th style="width:38%">'+x[0]+'</th><td style="white-space:pre-wrap">'+escHtml(x[1])+'</td></tr>'; }).join('')+'</table>');
 }
 function primerDiaDelMes(fechaStr){
   const [y,m]=fechaStr.split('-').map(Number);
@@ -1824,14 +1852,14 @@ function renderizarCuadriculaSemana(cont, visitas, inicio, soloLectura){
   });
   tabla.innerHTML=filaCab+filasCuerpo;
   cont.appendChild(tabla);
-  if(!soloLectura){
-    tabla.querySelectorAll('.agenda-grid-cell[data-id]').forEach(function(celda){
-      celda.onclick=function(){
-        const v=visitas.find(function(x){ return x.id===celda.getAttribute('data-id'); });
-        if(v){ visitaActual=v; irA('completar'); }
-      };
-    });
-  }
+  tabla.querySelectorAll('.agenda-grid-cell[data-id]').forEach(function(celda){
+    celda.onclick=function(){
+      const v=visitas.find(function(x){ return x.id===celda.getAttribute('data-id'); });
+      if(!v) return;
+      if(soloLectura) verVisitaSoloLectura(v);  // Supervisión: consultar sin editar
+      else { visitaActual=v; irA('completar'); }
+    };
+  });
   const sinFranja=visitas.filter(function(v){ return !v.franjaHoraria; });
   if(sinFranja.length){
     const aviso=document.createElement('div');
