@@ -529,6 +529,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px">
         <div id="fichaTendencia"></div>
         <button type="button" id="btnVerVentas" onclick="alternarVentasFicha()" style="width:auto;padding:5px 12px;font-size:12px;font-weight:700;border:1.5px solid var(--bm-blue-mid);border-radius:14px;background:#fff;color:var(--bm-blue);cursor:pointer">📊 Ver ventas</button>
+        <button type="button" id="btnVista360" onclick="alternarVista360()" style="display:none;width:auto;padding:5px 12px;font-size:12px;font-weight:700;border:1.5px solid var(--bm-blue-mid);border-radius:14px;background:#fff;color:var(--bm-blue);cursor:pointer">🔎 Vista 360</button>
       </div>
     </div>
     <div id="fichaPestanaVentas" style="display:none">
@@ -541,6 +542,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
       <div id="fichaVentas"></div>
     </div>
     </div>
+    <div id="fichaPestana360" style="display:none"><div id="ficha360"></div></div>
     <div id="fichaPestanaResumen">
     <div class="section">
       <div id="fichaAvisoVencidas"></div>
@@ -2509,6 +2511,7 @@ window.verFichaCliente = async function verFichaCliente(){
     const snapCliente=await getDocDiario('clientes',partner);
     if(snapCliente.exists()) cliente=snapCliente.data();
   }catch(err){ console.error(err); }
+  fichaClienteActual=cliente;
   if(cliente && cliente.estadoErp){
     // Estado del cliente en el ERP (07/10/2026)
     const activo=cliente.estadoErp==='Activo';
@@ -2541,8 +2544,10 @@ window.verFichaCliente = async function verFichaCliente(){
     const q=query(collection(db,'visitas'), where('clientePartner','==',partner));
     const snap=await getDocs(q);
     const vistas=new Set();
+    fichaVisitasCliente=[];
     snap.forEach(function(d){
       const v=d.data();
+      fichaVisitasCliente.push(v);
       const nombre=(v.nombreObra||'').trim();
       if(!nombre) return;
       const clave=nombre.toLowerCase();
@@ -2970,7 +2975,14 @@ let periodoVentas='Mes';
 function cambiarPestanaFicha(pestana){
   document.getElementById('fichaPestanaResumen').style.display = pestana==='resumen' ? '' : 'none';
   document.getElementById('fichaPestanaVentas').style.display = pestana==='ventas' ? '' : 'none';
+  document.getElementById('fichaPestana360').style.display = pestana==='360' ? '' : 'none';
   document.getElementById('btnVerVentas').textContent = pestana==='ventas' ? '‹ Volver a la ficha' : '📊 Ver ventas';
+  document.getElementById('btnVista360').textContent = pestana==='360' ? '‹ Volver a la ficha' : '🔎 Vista 360';
+}
+window.alternarVista360 = function alternarVista360(){
+  const en360=document.getElementById('fichaPestana360').style.display!=='none';
+  if(!en360) pintarVista360();
+  cambiarPestanaFicha(en360 ? 'resumen' : '360');
 }
 window.alternarVentasFicha = function alternarVentasFicha(){
   const enVentas=document.getElementById('fichaPestanaVentas').style.display!=='none';
@@ -2992,6 +3004,7 @@ function pintarVentas(v){
   const cont=document.getElementById('fichaVentas');
   const tend=document.getElementById('fichaTendencia');
   document.getElementById('btnVerVentas').style.display = v ? '' : 'none';
+  document.getElementById('btnVista360').style.display = (v && v.v360) ? '' : 'none';
   if(!v){
     tend.innerHTML='';
     cont.innerHTML='<div class="hint">Sin datos de ventas. Solo se cargan para los clientes con comercial asignado en el ERP.</div>';
@@ -3041,6 +3054,172 @@ function pintarVentas(v){
     filas.map(function(f){ return '<tr><td style="padding:4px 0;color:#667">'+f[0]+'</td><td style="padding:4px 0;text-align:right;font-weight:600;color:#1a1a2e">'+f[1]+'</td></tr>'; }).join('')+
     '</table>';
   html+='<div class="hint" style="margin-top:8px">Ventas hasta el '+v.ventasHasta+', comparadas con el mismo periodo del año anterior hasta el mismo día.</div>';
+  cont.innerHTML=html;
+}
+/* ---------- Vista 360 del cliente (14/10/2026, Fase 1 del CRM ampliado) ----------
+   Datos de clientesVentas.v360 (los calcula el importador cada mañana): últimos 12
+   meses frente a los 12 anteriores, con o sin transporte, por sección (con el peso
+   medio de sus "clientes parecidos": mismo oficio del ERP, región y tramo de
+   venta), por tienda (Getafe y Getafe 2 = una) y hábitos de compra. Los avisos y
+   las sugerencias se redactan como apoyo, no como órdenes (petición de Rossy).
+   El margen solo lo ven supervisión y Dirección. */
+let fichaClienteActual=null;
+let fichaVisitasCliente=[];
+const NOMBRES_SECCION={'CARPINTERIA':'Carpintería','CERAMICA':'Cerámica','CONSTRUCCION':'Construcción','ELECTRICIDAD':'Electricidad',
+  'FERRETERIA-HERRAMIENTAS':'Ferretería','FONTANERIA - CALEFACCION':'Fontanería','PINTURA Y DROGUERIA':'Pintura','SANITARIO':'Sanitario',
+  'COCINAS':'Cocinas','PENDIENTE CLASIFICAR':'Sin clasificar'};
+function nombreSeccion(s){ return NOMBRES_SECCION[s] || nombreLegible(s); }
+const NOMBRES_TIENDA={'ALCORCON':'Alcorcón','ALCORCON_EXPO':'Alcorcón Expo','ALCALA':'Alcalá','GARCIA_NOBLEJAS':'García Noblejas','SANT_ADRIA':'Sant Adrià',
+  'SANT_BOI':'Sant Boi','SANT_JUST':'Sant Just','PLOG':'Plataforma Madrid','SLOG':'Plataforma Barcelona'};
+function nombreTienda(t){ return NOMBRES_TIENDA[t] || nombreLegible(String(t||'').replace(/_/g,' ')); }
+function varPct(a, b){ return b>0 ? Math.round((a-b)/b*1000)/10 : null; }
+function fmtPct(p){ return p==null ? '' : (p>0?'+':'')+(Math.abs(p)>=10 ? Math.round(p) : p.toLocaleString('es-ES'))+' %'; }
+function fmtK(n){ return (Math.round(Number(n||0)/100)/10).toLocaleString('es-ES',{minimumFractionDigits:1,maximumFractionDigits:1})+' k'; }
+function claseVar(p){ return p==null ? '' : (p<0 ? 'color:var(--bm-red)' : 'color:var(--bm-green)'); }
+function listaNatural(xs){ return xs.length<2 ? xs.join('') : xs.slice(0,-1).join(', ')+' y '+xs[xs.length-1]; }
+function pintarVista360(){
+  const cont=document.getElementById('ficha360');
+  const v=ventasFichaActual, d=v && v.v360, c=fichaClienteActual||{};
+  if(!d){ cont.innerHTML='<div class="section hint">Sin datos 360 para este cliente: solo se calculan para clientes con comercial asignado y compras en los últimos 24 meses.</div>'; return; }
+  const esSup=!!(comercialActual && comercialActual.esSupervisor);
+  const tot=d.ventas[0], totN1=d.ventas[1];
+  const varVenta=varPct(tot, totN1);
+  const sec=(t, n, cuerpo)=>'<div class="section"><div class="section-title">'+t+(n?'<span style="margin-left:auto;font-size:9px;letter-spacing:0;text-transform:none;color:#667;font-weight:500">'+n+'</span>':'')+'</div>'+cuerpo+'</div>';
+  const aviso=(tipo, html)=>'<div style="border-radius:10px;padding:9px 11px;font-size:12px;line-height:1.45;margin-top:8px;'+
+    (tipo==='mal'?'background:var(--bm-red-light);color:#7a1418':tipo==='op'?'background:#E6F4EA;color:#0f4a23':'background:var(--bm-blue-pale);color:var(--bm-blue)')+'">'+html+'</div>';
+  const chip=(tipo, t)=>'<span style="display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:9px;margin:0 4px 4px 0;'+
+    (tipo==='mal'?'background:var(--bm-red-light);color:var(--bm-red)':tipo==='av'?'background:var(--bm-amber-light);color:var(--bm-amber)':tipo==='ok'?'background:#E6F4EA;color:var(--bm-green-dark)':'background:var(--bm-blue-light);color:var(--bm-blue)')+'">'+t+'</span>';
+  const tile=(l, val, nota, estilo)=>'<div style="border:1px solid var(--bm-blue-light);border-radius:10px;padding:8px;min-width:0"><div style="font-size:10px;color:#667">'+l+'</div><div style="font-size:16px;font-weight:700;color:#1a1a2e;white-space:nowrap">'+val+'</div><div style="font-size:11px;font-weight:700;margin-top:2px;'+(estilo||'color:#667')+'">'+(nota||'&nbsp;')+'</div></div>';
+  const barraFila=(nombre, peso, marca, importe, pct, rojo)=>'<div style="display:grid;grid-template-columns:92px 1fr 50px 44px;gap:6px;align-items:center;font-size:12px;padding:3px 0">'+
+    '<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;'+(rojo?'font-weight:700;color:var(--bm-red)':'')+'">'+nombre+'</span>'+
+    '<div style="position:relative;height:12px;background:#f3f5f9;border-radius:3px"><i style="position:absolute;left:0;top:0;bottom:0;border-radius:3px;width:'+Math.min(100,Math.max(peso>0?1:0,peso)).toFixed(1)+'%;background:'+(rojo?'var(--bm-red)':'var(--bm-blue-mid)')+'"></i>'+
+    (marca!=null?'<u style="position:absolute;top:-2px;bottom:-2px;width:2px;background:#1a1a2e;opacity:.55;left:'+Math.min(99,marca).toFixed(1)+'%"></u>':'')+'</div>'+
+    '<span style="text-align:right;font-variant-numeric:tabular-nums">'+importe+'</span><span style="text-align:right;font-variant-numeric:tabular-nums;'+(typeof pct==='number'?claseVar(pct):'')+'">'+(typeof pct==='number'?fmtPct(pct):(pct||''))+'</span></div>';
+  const chips=[], sugerencias=[];
+  if(varVenta!=null) chips.push(chip(varVenta<=-10?'mal':varVenta>=10?'ok':'azul', (varVenta<0?'▼ ':'▲ ')+fmtPct(varVenta)+' en 12 meses'));
+
+  // --- secciones: fugas y oportunidades frente a los parecidos
+  const pares=d.pares, pesoPares=(pares&&pares.peso)||{};
+  const secciones=Object.keys(d.secciones).map(function(s){ const x=d.secciones[s]; return {s:s, a:x[0], b:x[1], peso: tot>0? x[0]/tot*100 : 0, v:varPct(x[0],x[1])}; })
+    .filter(function(x){ return x.a>0 || x.b>0; });
+  Object.keys(pesoPares).forEach(function(s){ if(!d.secciones[s] && pesoPares[s]>=1) secciones.push({s:s, a:0, b:0, peso:0, v:null}); });
+  secciones.sort(function(x,y){ return y.a-x.a || (pesoPares[y.s]||0)-(pesoPares[x.s]||0); });
+  const fugas=secciones.filter(function(x){ return x.b>=1000 && x.v!=null && x.v<=-50; }).sort(function(x,y){ return (x.a-x.b)-(y.a-y.b); });
+  const oportunidades=secciones.filter(function(x){ return (pesoPares[x.s]||0)>=3 && x.peso < (pesoPares[x.s]||0)-2; })
+    .sort(function(x,y){ return ((pesoPares[y.s]||0)-y.peso)-((pesoPares[x.s]||0)-x.peso); }).slice(0,4);
+  fugas.slice(0,2).forEach(function(x){ chips.push(chip('av','Deja '+nombreSeccion(x.s))); });
+
+  // --- hábitos: frecuencia y ritmo
+  let diasDesde=null, frecuencia=null, ritmo='';
+  if(d.diasCompra>=2) frecuencia=Math.round(365/d.diasCompra*10)/10;
+  if(v.ultimaCompra){ const p=v.ultimaCompra.split('/'); diasDesde=Math.round((new Date(new Date().toDateString())-new Date(p[2],p[1]-1,p[0]))/86400000); }
+  if(frecuencia!=null && diasDesde!=null){
+    const margenDias=Math.max(7, frecuencia*2);
+    ritmo = diasDesde<=margenDias ? chip('ok','en su ritmo') : chip('mal','se retrasa');
+    if(diasDesde>margenDias) sugerencias.push('Lleva '+diasDesde+' días sin comprar, más de lo habitual en él (suele comprar cada '+String(frecuencia).replace('.',',')+' días): podría ser buen momento para contactarle.');
+  }
+  if(frecuencia!=null) chips.push(chip('azul','Compra cada '+String(frecuencia).replace('.',',')+' días'));
+
+  // --- cabecera
+  let html='<div class="section" style="background:var(--bm-blue-pale)">'+
+    '<div style="font-size:12px;color:#667">'+[pares&&pares.oficio?pares.oficio:'', pares&&pares.region?nombreLegible(pares.region.replace(/_/g,' ')):'', d.tiendaPrincipal?'Tienda principal: '+nombreTienda(d.tiendaPrincipal):''].filter(Boolean).join(' · ')+'</div>'+
+    '<div style="margin-top:6px">'+chips.join('')+'</div></div>';
+
+  // --- resumen 12 meses
+  const tk=d.tickets, cm=tk[0]>0?tot/tk[0]:null, cmN1=tk[1]>0?totN1/tk[1]:null;
+  const mg=tot>0?d.margen[0]/tot*100:null, mgN1=totN1>0?d.margen[1]/totN1*100:null;
+  const lim=c.limiteCredito||0, usado=c.saldoTotalCredito!=null?c.saldoTotalCredito:(c.saldoPendienteCobro||0);
+  const vencido=(c.importeVencido||0)+(c.importeImpagado||0);
+  html+=sec('Resumen 12 meses', d.periodo+' vs año anterior',
+    '<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px">'+
+      tile('Venta', fmtK(tot)+'€', fmtPct(varVenta), claseVar(varVenta))+
+      tile('Tickets', String(tk[0]).replace(/\B(?=(\d{3})+(?!\d))/g,'.'), fmtPct(varPct(tk[0],tk[1])), claseVar(varPct(tk[0],tk[1])))+
+      tile('Compra media', cm!=null?formatEurosCorto(cm):'—', fmtPct(cm!=null&&cmN1?varPct(cm,cmN1):null), claseVar(cm!=null&&cmN1?varPct(cm,cmN1):null))+
+    '</div><div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-top:6px">'+
+      (esSup ? tile('Margen %', mg!=null?mg.toLocaleString('es-ES',{maximumFractionDigits:1})+' %':'—', (mg!=null&&mgN1!=null)?((mg-mgN1>0?'+':'')+(mg-mgN1).toLocaleString('es-ES',{maximumFractionDigits:1})+' pts'):'', (mg!=null&&mgN1!=null)?claseVar(mg-mgN1):'')
+             : tile('Días con compra', String(d.diasCompra||0), 'en 12 meses'))+
+      tile('Crédito usado', lim>0?Math.round(usado/lim*100)+' %':'—', lim>0?fmtK(usado)+' de '+fmtK(lim):'sin límite')+
+      tile('Vencido', formatEurosCorto(vencido), vencido>0?'pendiente':'al día', vencido>0?'color:var(--bm-red)':'color:var(--bm-green)')+
+    '</div>');
+  if(vencido>0) sugerencias.push('Tiene '+formatEurosCorto(vencido)+' vencidos: conviene tenerlo presente en la conversación.');
+
+  // --- con / sin transporte
+  const con=d.transporte['Con Transporte']||[0,0], sin=d.transporte['Sin Transporte']||[0,0];
+  const pCon=tot>0?con[0]/tot*100:0, pConN1=totN1>0?con[1]/totN1*100:0;
+  const split=(p, etiq)=>'<div style="font-size:11px;color:#667;margin:6px 0 3px">'+etiq+'</div><div style="display:flex;height:22px;border-radius:6px;overflow:hidden;font-size:11px;font-weight:700">'+
+    (p>0?'<div style="width:'+p.toFixed(1)+'%;min-width:34px;background:var(--bm-blue);color:#fff;display:flex;align-items:center;justify-content:center">'+Math.round(p)+' %</div>':'')+
+    '<div style="flex:1;background:#B8C4D6;color:#1a1a2e;display:flex;align-items:center;justify-content:center">'+Math.round(100-p)+' % sin transporte</div></div>';
+  let txtTransp='';
+  const vCon=varPct(con[0],con[1]), vSin=varPct(sin[0],sin[1]);
+  if(vCon!=null && vSin!=null && con[1]>=1000 && Math.abs(vCon-vSin)>=15){
+    txtTransp = vCon<vSin
+      ? 'Cae más lo servido en obra (<b>'+fmtPct(vCon)+'</b>, de '+fmtK(con[1])+'€ a '+fmtK(con[0])+'€) que lo que recoge en tienda ('+fmtPct(vSin)+').'
+      : 'Cae más lo que recoge en tienda (<b>'+fmtPct(vSin)+'</b>) que lo servido en obra ('+fmtPct(vCon)+').';
+    if(vCon<vSin && vCon<0) sugerencias.push('La venta servida en obra cae más que la de tienda: quizá merezca la pena preguntar por sus obras en curso.');
+  }
+  html+=sec('Con / sin transporte','', split(pCon,'Últimos 12 meses')+(totN1>0?split(pConN1,'Año anterior'):'')+(txtTransp?aviso('info',txtTransp):''));
+
+  // --- secciones
+  let htmlSec='<div style="display:grid;grid-template-columns:92px 1fr 50px 44px;gap:6px;font-size:10px;color:#667"><span>Sección</span><span>Peso en su compra</span><span style="text-align:right">12 m</span><span style="text-align:right">vs N-1</span></div>';
+  secciones.forEach(function(x){
+    const esFuga=fugas.indexOf(x)>=0;
+    htmlSec+=barraFila(nombreSeccion(x.s), x.peso, pesoPares[x.s]!=null?pesoPares[x.s]:null, x.a>0?fmtK(x.a):'—', x.v, esFuga);
+  });
+  htmlSec+='<div style="font-size:10px;color:#667;margin-top:6px;display:flex;gap:12px;flex-wrap:wrap"><span><i style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--bm-blue-mid);vertical-align:middle"></i> Peso en la compra del cliente</span>'+
+    (pares?'<span><i style="display:inline-block;width:2px;height:10px;background:#1a1a2e;opacity:.55;vertical-align:middle"></i> Media de '+pares.n+' clientes parecidos</span>':'')+'</div>';
+  if(fugas.length){
+    const f0=fugas[0];
+    htmlSec+=aviso('mal','<b>Fuga:</b> '+nombreSeccion(f0.s)+' ha pasado de '+fmtK(f0.b)+'€ a '+fmtK(f0.a)+'€ ('+fmtK(f0.a-f0.b).replace('-','−')+'€).'+
+      (fugas.length>1?' También baja mucho '+listaNatural(fugas.slice(1,3).map(function(x){ return nombreSeccion(x.s); }))+'.':''));
+    sugerencias.unshift('Podría ser útil conocer el motivo de la bajada en <b>'+nombreSeccion(f0.s)+'</b> ('+fmtK(f0.a-f0.b).replace('-','−')+'€ en 12 meses).');
+  }
+  if(oportunidades.length){
+    htmlSec+=aviso('op','<b>Oportunidades:</b> compra bastante menos que sus parecidos en '+listaNatural(oportunidades.map(function(x){
+      return '<b>'+nombreSeccion(x.s)+'</b> ('+Math.round(x.peso)+' % frente a '+Math.round(pesoPares[x.s])+' %)'; }))+'.');
+    sugerencias.push('Sus parecidos compran bastante más '+listaNatural(oportunidades.slice(0,2).map(function(x){ return '<b>'+nombreSeccion(x.s)+'</b>'; }))+': podría ser una buena ocasión para presentar alguna oferta.');
+  }
+  if(pares) htmlSec+='<div style="font-size:10px;color:#667;margin-top:6px">Parecidos = clientes '+(pares.tipo?'con oficio «'+pares.tipo+'», ':'')+'de '+nombreLegible((pares.region||'').replace(/_/g,' '))+(pares.criterio.indexOf('tramo')>=0?' y con venta de '+pares.tramo+' al año':'')+' ('+pares.n+' clientes).</div>';
+  html+=sec('Venta por sección', pares?'peso en su compra vs. parecidos':'peso en su compra', htmlSec);
+
+  // --- tiendas
+  const tiendas=Object.keys(d.tiendas).map(function(t){ const x=d.tiendas[t]; return {t:t, a:x[0], b:x[1]}; }).filter(function(x){ return x.a>0||x.b>0; }).sort(function(x,y){ return y.a-x.a; });
+  let htmlT='';
+  tiendas.slice(0,4).forEach(function(x){ htmlT+=barraFila(nombreTienda(x.t), tot>0?x.a/tot*100:0, null, fmtK(x.a), tot>0?Math.round(x.a/tot*100)+' %':''); });
+  if(tiendas.length>4){
+    const resto=tiendas.slice(4).reduce(function(s,x){ return s+x.a; },0);
+    htmlT+=barraFila('Otras ('+(tiendas.length-4)+')', tot>0?resto/tot*100:0, null, fmtK(resto), tot>0?Math.round(resto/tot*100)+' %':'');
+  }
+  const caidaT=tiendas.filter(function(x){ return x.b>=2000 && varPct(x.a,x.b)<=-40; }).sort(function(x,y){ return (x.a-x.b)-(y.a-y.b); })[0];
+  if(caidaT) htmlT+=aviso('info','En '+nombreTienda(caidaT.t)+' ha pasado de '+fmtK(caidaT.b)+'€ a '+fmtK(caidaT.a)+'€.'+(caidaT.t==='GETAFE'?' (Getafe y Getafe 2 cuentan como una sola tienda.)':''));
+  html+=sec('Tiendas donde compra','12 meses', htmlT||'<div class="hint">Sin compras en tienda en 12 meses.</div>');
+
+  // --- hábitos
+  let mesesFuertes='';
+  if(v.serieMensual && v.serieMesInicio){
+    const ini=Number(v.serieMesInicio.split('-')[1])-1, suma=new Array(12).fill(0);
+    v.serieMensual.forEach(function(x,i){ suma[(ini+i)%12]+=x>0?x:0; });
+    mesesFuertes=suma.map(function(x,i){ return {i:i,x:x}; }).filter(function(o){ return o.x>0; }).sort(function(a,b){ return b.x-a.x; }).slice(0,3)
+      .sort(function(a,b){ return a.i-b.i; }).map(function(o){ return MESES_CORTOS[o.i]; }).join(', ');
+  }
+  const kv=(l, val)=>'<div><div style="font-size:10px;color:#667">'+l+'</div><b style="font-size:13px">'+val+'</b></div>';
+  html+=sec('Hábitos de compra','',
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 12px">'+
+      kv('Días con compra (12 m)', d.diasCompra||0)+kv('Frecuencia', frecuencia!=null?'cada '+String(frecuencia).replace('.',',')+' días':'—')+
+      kv('Última compra', (v.ultimaCompra||'—')+' '+ritmo)+kv('Meses fuertes', mesesFuertes||'—')+
+    '</div>'+(v.serieMensual&&v.serieMensual.length?'<div style="margin-top:10px">'+miniGraficoVentas(v.serieMensual, v.serieMesInicio)+'</div>':''));
+
+  // --- sugerencias para la visita
+  const realizadas=fichaVisitasCliente.filter(function(x){ return x.estadoVisita==='Realizada' && x.fechaVisita; }).sort(function(a,b){ return a.fechaVisita<b.fechaVisita?1:-1; });
+  const ult=realizadas[0];
+  let resumenVis = fichaVisitasCliente.length
+    ? (ult ? 'Última visita: '+ult.fechaVisita.slice(8,10)+'/'+ult.fechaVisita.slice(5,7)+(ult.resultadoVisita?', '+ult.resultadoVisita.toLowerCase():'')+(ult.importePedido?' de '+formatEurosCorto(ult.importePedido):'')+'. ' : 'Sin visitas realizadas. ')+
+      fichaVisitasCliente.length+' visita'+(fichaVisitasCliente.length===1?'':'s')+' registrada'+(fichaVisitasCliente.length===1?'':'s')+'.'
+    : 'Sin visitas registradas.';
+  html+=sec('Sugerencias para la visita','a partir de los datos',
+    '<div style="font-size:12px;color:#667;margin-bottom:6px">'+resumenVis+'</div>'+
+    (sugerencias.length ? sugerencias.map(function(t){ return '<div style="font-size:12px;line-height:1.5;margin-bottom:4px">💡 '+t+'</div>'; }).join('')
+                        : '<div class="hint">Sin señales destacables: el cliente compra con normalidad.</div>'));
+  html+='<div class="hint" style="padding:10px 16px 14px">Ventas sin la sección OTROS, datos hasta el '+(v.ventasHasta||'')+'. '+(esSup?'':'El margen solo lo ven supervisión y Dirección.')+'</div>';
   cont.innerHTML=html;
 }
 /* ---------- Listas de la ficha: contactos, obras y comentarios (07/10/2026) ----------
