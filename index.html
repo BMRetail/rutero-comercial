@@ -1162,9 +1162,15 @@ function seleccionarDireccion(it){
 let carteraCerrada=null;
 function esClienteProvisional(id){ return /^PROVCLI/.test(id||''); }  // solo visible para su comercial provisional
 function esCarteraCerrada(){ return !!(comercialActual && /^PROV\d/.test(comercialActual.id)); }
+/* Carteras provisionales sin titular (14/10/2026, Rossy): Antonio Jesús Jiménez
+   (PROV003) ha pasado a otras funciones y sus clientes quedan disponibles para
+   el resto de comerciales provisionales (Miriam PROV001 y Alejandro PROV002).
+   Siguen asignados a PROV003, solo se comparten al buscar y planificar. */
+const CARTERAS_PROV_COMPARTIDAS=['PROV003'];
 async function clientesCarteraCerrada(){
   if(carteraCerrada && carteraCerrada.id===comercialActual.id) return carteraCerrada.clientes;
-  const snap=await getDocs(query(collection(db,'clientes'), where('plt','==',comercialActual.id)));
+  const plts=[comercialActual.id].concat(CARTERAS_PROV_COMPARTIDAS.filter(function(p){ return p!==comercialActual.id; }));
+  const snap=await getDocs(query(collection(db,'clientes'), where('plt','in',plts)));
   const lista=[];
   snap.forEach(function(d){ lista.push({id:d.id, c:d.data()}); });
   carteraCerrada={id:comercialActual.id, clientes:lista};
