@@ -153,6 +153,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 .cnt-ficha:empty{display:none}
 .ver-mas-ficha{font-size:12px;font-weight:700;color:var(--bm-blue-mid);cursor:pointer;padding:6px 0}
 .screen.active{display:block}
+.chip-usu{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:9px}
 </style>
 </head>
 <body>
@@ -168,6 +169,48 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
   </div>
 
   <div id="statusBanner" class="status-banner"></div>
+
+  <!-- ===================== ACCESO (15/10/2026): correo de empresa + contraseña ===================== -->
+  <div class="screen" id="screen-login">
+    <div class="section">
+      <div class="section-title">Acceso</div>
+      <div class="field"><label>Correo de empresa</label>
+        <input type="email" id="login_email" placeholder="nombre.apellido@bigmat.biz" autocomplete="username" onkeydown="if(event.key==='Enter') document.getElementById('login_pass').focus()"></div>
+      <div class="field"><label>Contraseña</label>
+        <input type="password" id="login_pass" autocomplete="current-password" onkeydown="if(event.key==='Enter') entrar()"></div>
+      <div id="login_msg" class="hint" style="min-height:18px"></div>
+    </div>
+    <div class="submit-bar">
+      <button class="submit-btn" id="login_btn" onclick="entrar()">Entrar</button>
+      <button class="secondary-btn" onclick="olvideContrasena()">He olvidado mi contraseña</button>
+    </div>
+    <div class="section hint" style="border:none">Se pide solo la primera vez en este dispositivo: la sesión queda abierta hasta que pulses «Cerrar sesión».
+      Si es tu primera vez, escribe tu correo y pulsa «He olvidado mi contraseña» para crear la tuya (revisa también el correo no deseado).</div>
+  </div>
+
+  <!-- ===================== GESTIONAR USUARIOS (solo administración) ===================== -->
+  <div class="screen" id="screen-usuarios">
+    <div class="section">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+        <div id="usu_resumen" style="font-size:13px;font-weight:700;color:var(--bm-blue)"></div>
+        <div style="display:flex;gap:6px"><button type="button" class="secondary-btn" style="width:auto;padding:6px 10px;font-size:12px" onclick="cargarUsuarios()">⟳ Actualizar</button>
+        <button type="button" class="secondary-btn" style="width:auto;padding:6px 10px;font-size:12px" onclick="enviarCorreoPendientes()">✉️ Correo a pendientes</button></div>
+      </div>
+      <input type="text" id="usu_buscar" placeholder="🔍 Buscar nombre, correo o PLT..." autocomplete="off" style="margin-top:10px" oninput="pintarUsuarios()">
+      <div id="usu_lista" style="margin-top:10px"></div>
+    </div>
+    <div class="section">
+      <div class="section-title">Dar de alta usuarios</div>
+      <div class="hint" style="margin-bottom:6px">Una persona por línea: <b>Nombre | correo | rol | PLT | categorías</b><br>
+        Roles: comercial · supervision · direccion · admin. Categorías (solo supervisión): F.VTA, TIENDA, COMANDO separadas por comas.<br>
+        Ej.: <i>Javier Llamas | javierllamas@bigmat.biz | comercial | PLT001790</i></div>
+      <textarea id="usu_nuevos" rows="6" placeholder="Nombre | correo | rol | PLT | categorías"></textarea>
+      <label class="radio-btn" style="width:100%;justify-content:flex-start;gap:10px;padding:10px 12px;margin-top:8px">
+        <input type="checkbox" id="usu_enviar" style="width:18px;height:18px"><span style="font-weight:500">Enviar ya el correo para crear la contraseña</span></label>
+      <button type="button" class="submit-btn" style="margin-top:10px" onclick="anadirUsuarios()">Dar de alta</button>
+      <pre id="usu_log" style="white-space:pre-wrap;font-size:12px;color:#333;margin-top:10px"></pre>
+    </div>
+  </div>
 
   <!-- ===================== BIENVENIDA: pedir PLT ===================== -->
   <div class="screen" id="screen-bienvenida-plt">
@@ -229,7 +272,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
           <div style="font-size:11px;color:#667">Conectado como</div>
           <div id="inicioNombreConectado" style="font-size:15px;font-weight:700;color:var(--bm-blue)"></div>
         </div>
-        <span style="font-size:12px;font-weight:600;color:var(--bm-blue-mid);cursor:pointer" onclick="cambiarComercial()">Cambiar ⟳</span>
+        <span style="font-size:12px;font-weight:600;color:var(--bm-blue-mid);cursor:pointer" onclick="cerrarSesion()">Cerrar sesión</span>
       </div>
     </div>
     <div class="section" id="inicioAvisoPendientesSection" style="display:none">
@@ -240,6 +283,8 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
     </div>
     <div class="section" id="inicioSupervisionSection" style="display:none">
       <button class="menu-btn" onclick="irA('supervision')"><span class="ico">📊</span> Supervisión del equipo</button>
+      <button class="menu-btn" onclick="window.open('informe.html','_blank')"><span class="ico">🖥️</span> Informe de equipo (pantalla grande)</button>
+      <button class="menu-btn" id="btnGestionarUsuarios" style="display:none" onclick="irA('usuarios')"><span class="ico">👥</span> Gestionar usuarios</button>
     </div>
     <div class="section">
       <div class="section-title" id="inicioHerramientasToggle" style="margin-bottom:0;display:none" onclick="toggleHerramientasComercial()">
@@ -710,11 +755,13 @@ import {
   getFirestore, collection, doc, getDoc, getDocs, addDoc, updateDoc, setDoc, arrayUnion, deleteField,
   query, where, orderBy, startAt, endAt, limit, serverTimestamp
 } from 'https://cdn.jsdelivr.net/npm/firebase@10.12.0/firestore/+esm';
-import { getAuth, signInAnonymously } from 'https://cdn.jsdelivr.net/npm/firebase@10.12.0/auth/+esm';
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, sendPasswordResetEmail, signOut, createUserWithEmailAndPassword }
+  from 'https://cdn.jsdelivr.net/npm/firebase@10.12.0/auth/+esm';
 
 const app = initializeApp(FIREBASE_CONFIG);
 const db = getFirestore(app);
 const auth = getAuth(app);
+auth.languageCode = 'es';  // correos de Firebase (crear/restablecer contraseña) en español
 
 const FRANJAS = ['08:00-09:00','09:00-10:00','10:00-11:00','11:00-12:00','12:00-13:00','13:00-14:00','15:00-16:00','16:00-17:00','17:00-18:00'];
 
@@ -805,7 +852,9 @@ const TITULOS = {
   supervision: ['Supervisión del equipo','¿Quién ha planificado?'],
   pendientes: ['Visitas pendientes','Cancela o reprograma'],
   reprogramar: ['Reprogramar visita','Elige nueva fecha y franja'],
-  agenda: ['Mi Agenda','Vista día / semana']
+  agenda: ['Mi Agenda','Vista día / semana'],
+  login: ['Rutero Comercial','Entra con tu usuario'],
+  usuarios: ['Gestionar usuarios','Altas, correos y accesos']
 };
 window.irA = function irA(pantalla, guardarHistorial=true){
   if(guardarHistorial){
@@ -817,7 +866,7 @@ window.irA = function irA(pantalla, guardarHistorial=true){
   const t=TITULOS[pantalla]||['Rutero Comercial',''];
   document.getElementById('headerTitle').textContent=t[0];
   document.getElementById('headerSub').textContent=t[1];
-  const sinCabecera = pantalla==='inicio' || pantalla==='bienvenida-plt' || pantalla==='bienvenida-lista' || pantalla==='bienvenida-confirmar';
+  const sinCabecera = pantalla==='inicio' || pantalla==='login' || pantalla==='bienvenida-plt' || pantalla==='bienvenida-lista' || pantalla==='bienvenida-confirmar';
   document.getElementById('btnBack').style.display = sinCabecera ? 'none' : '';
   document.getElementById('btnHome').style.display = sinCabecera ? 'none' : '';
   hideStatus();
@@ -828,6 +877,7 @@ window.irA = function irA(pantalla, guardarHistorial=true){
   if(pantalla==='agenda') iniciarAgenda();
   if(pantalla==='supervision') iniciarSupervision();
   if(pantalla==='cartera') iniciarCartera();
+  if(pantalla==='usuarios') cargarUsuarios();
   if(pantalla==='clientes'){
     document.getElementById('cb_cliente').value='';
     document.getElementById('cb_cliente_list').classList.remove('open');
@@ -946,9 +996,17 @@ window.cambiarComercial = function cambiarComercial(){
   irA('bienvenida-plt', false);
 }
 function mostrarInicioConectado(){
-  document.getElementById('inicioNombreConectado').textContent=comercialActual.nombre;
+  document.getElementById('inicioNombreConectado').textContent=nombreLegible(comercialActual.nombre);
   const esSuper=!!comercialActual.esSupervisor;
   document.getElementById('inicioSupervisionSection').style.display=esSuper ? '' : 'none';
+  document.getElementById('btnGestionarUsuarios').style.display = comercialActual.rol==='admin' ? '' : 'none';
+  if(!comercialActual.id){
+    // Dirección (sin PLT): solo Supervisión, sin herramientas de comercial
+    document.getElementById('inicioHerramientasToggle').style.display='none';
+    document.getElementById('inicioHerramientasBody').style.display='none';
+    irA('inicio', false);
+    return;
+  }
   const titulo=document.getElementById('inicioHerramientasToggle');
   const cuerpo=document.getElementById('inicioHerramientasBody');
   const chevron=document.getElementById('inicioHerramientasChevron');
@@ -1958,6 +2016,8 @@ async function cargarSupervision(){
   comercialesSnap.forEach(function(d){
     const c=d.data();
     if(c.activo===false || !c.categoria) return;
+    // Supervisión por equipos (15/10/2026): cada supervisor ve solo sus categorías
+    if(comercialActual && comercialActual.categorias && comercialActual.categorias.indexOf(c.categoria)<0) return;
     categorias.add(c.categoria);
     comercialesPorCategoria[d.id]={id:d.id, nombre:c.nombre||d.id, categoria:c.categoria, planificadas:0, realizadas:0, pospuestas:0, canceladas:0, pedidosCerrados:0, importeGenerado:0};
   });
@@ -3441,6 +3501,204 @@ window.anadirComentario = async function anadirComentario(){
   }
 }
 
+/* ---------- ACCESO CON USUARIO (15/10/2026, mismo sistema que Protocolo de Visita) ----------
+   Cada persona entra con su correo de empresa y su contraseña (Firebase Auth). Sus
+   permisos están en usuarios/{correo en minúsculas}: nombre, rol (comercial /
+   supervision / direccion / admin), plt, categorias (supervisión: qué equipos ve)
+   y activo. Rossy y Li Lin son administración aunque no tengan perfil. El acceso
+   de cada uno (primera vez, última, dispositivos) queda en accesos/{correo}. */
+const ADMINS=['rossy.cuenca@bigmat.biz','li.lin@bigmat.biz'];
+const PLT_ADMIN={'rossy.cuenca@bigmat.biz':'ROSSY'};
+const ROLES_TXT={comercial:'Comercial', supervision:'Supervisión', direccion:'Dirección', admin:'Administración'};
+let mensajeLogin='';
+function msgLogin(t, tipo){
+  const el=document.getElementById('login_msg');
+  el.textContent=t||''; el.style.color = tipo==='ok' ? 'var(--bm-green-dark)' : 'var(--bm-red)';
+}
+function mostrarLogin(){
+  historialPantallas.length=0;
+  irA('login', false);
+  if(mensajeLogin){ msgLogin(mensajeLogin, 'err'); mensajeLogin=''; }
+}
+const ERRORES_ACCESO={
+  'auth/invalid-credential':'Correo o contraseña incorrectos.',
+  'auth/wrong-password':'Correo o contraseña incorrectos.',
+  'auth/user-not-found':'Correo o contraseña incorrectos.',
+  'auth/invalid-email':'El correo no es válido.',
+  'auth/missing-password':'Escribe tu contraseña.',
+  'auth/too-many-requests':'Demasiados intentos. Espera unos minutos o pulsa «He olvidado mi contraseña».',
+  'auth/network-request-failed':'Sin conexión. Revisa la cobertura e inténtalo de nuevo.',
+  'auth/user-disabled':'Tu usuario está desactivado. Contacta con Rossy Cuenca.'
+};
+window.entrar = async function entrar(){
+  const email=f('login_email').toLowerCase(), pass=document.getElementById('login_pass').value;
+  if(!email){ msgLogin('Escribe tu correo de empresa.'); return; }
+  const btn=document.getElementById('login_btn'); btn.disabled=true; btn.textContent='Entrando…';
+  try{ await signInWithEmailAndPassword(auth, email, pass); msgLogin(''); document.getElementById('login_pass').value=''; }
+  catch(e){ msgLogin(ERRORES_ACCESO[e.code] || ('No se pudo entrar: '+e.message)); }
+  finally{ btn.disabled=false; btn.textContent='Entrar'; }
+}
+window.olvideContrasena = async function olvideContrasena(){
+  const email=f('login_email').toLowerCase();
+  if(!email){ msgLogin('Escribe primero tu correo de empresa y vuelve a pulsar «He olvidado mi contraseña».'); return; }
+  try{
+    await sendPasswordResetEmail(auth, email);
+    msgLogin('Si ese correo tiene usuario, te hemos enviado un enlace para crear tu contraseña. Revisa también el correo no deseado.', 'ok');
+  }catch(e){ msgLogin(ERRORES_ACCESO[e.code] || ('No se pudo enviar el correo: '+e.message)); }
+}
+window.cerrarSesion = async function cerrarSesion(){
+  if(!confirm('¿Cerrar sesión en este dispositivo? Tendrás que volver a escribir tu correo y contraseña.')) return;
+  await signOut(auth);
+  location.reload();
+}
+async function alEntrar(user){
+  const email=(user.email||'').toLowerCase();
+  let p=null;
+  try{ const s=await getDoc(doc(db,'usuarios',email)); if(s.exists()) p=s.data(); }catch(e){ console.error('perfil', e); }
+  if(ADMINS.includes(email)) p=Object.assign({nombre:email, plt:PLT_ADMIN[email]||''}, p||{}, {rol:'admin', activo:true});
+  if(!p || p.activo!==true){
+    mensajeLogin='Tu usuario no tiene acceso a esta aplicación. Contacta con Rossy Cuenca (rossy.cuenca@bigmat.biz).';
+    await signOut(auth);
+    return;
+  }
+  try{ await cargarComerciales(); }catch(err){ console.error(err); showStatus('No se pudieron cargar los Comerciales: '+err.message, 'err'); }
+  const plt=(p.plt||'').toUpperCase();
+  const info=plt ? comercialesPorId[plt] : null;
+  comercialActual={
+    id: plt || null,
+    nombre: (info && info.nombre) || p.nombre || email,
+    esSupervisor: ['supervision','direccion','admin'].includes(p.rol) || !!(info && info.esSupervisor),
+    rol: p.rol, email: email,
+    categorias: (p.rol==='supervision' && Array.isArray(p.categorias) && p.categorias.length) ? p.categorias : null
+  };
+  registrarAcceso(email, p);
+  mostrarInicioConectado();
+}
+async function registrarAcceso(email, p){
+  try{
+    const ahora=new Date().toISOString();
+    const ua=navigator.userAgent.replace(/\s+/g,' ').slice(0,160);
+    const k=Array.from(ua).reduce(function(h,c){ return (h*31+c.charCodeAt(0))>>>0; },7).toString(36);
+    const datos={email:email, nombre:p.nombre||'', ultimo:ahora, ultimaApp:'rutero', dispositivos:{}};
+    datos.dispositivos[k]={ua:ua, ultimo:ahora};
+    const ref=doc(db,'accesos',email);
+    const previo=await getDoc(ref);
+    if(!previo.exists()) datos.primero=ahora;
+    await setDoc(ref, datos, {merge:true});
+  }catch(e){ console.error('acceso', e); }
+}
+
+/* --- Gestionar usuarios (solo administración) --- */
+let usuariosCache={}, accesosCache={};
+window.cargarUsuarios = async function cargarUsuarios(){
+  if(!comercialActual || comercialActual.rol!=='admin') return;
+  document.getElementById('usu_lista').innerHTML='<div class="hint">Cargando...</div>';
+  try{
+    const [su, sa]=await Promise.all([getDocs(collection(db,'usuarios')), getDocs(collection(db,'accesos'))]);
+    usuariosCache={}; accesosCache={};
+    su.forEach(function(d){ usuariosCache[d.id]=d.data(); });
+    sa.forEach(function(d){ accesosCache[d.id]=d.data(); });
+  }catch(e){ document.getElementById('usu_lista').innerHTML='<div class="hint" style="color:var(--bm-red)">Error: '+escHtml(e.message)+'</div>'; return; }
+  pintarUsuarios();
+}
+function fechaHoraCorta(iso){ if(!iso) return ''; const d=new Date(iso); return d.toLocaleDateString('es-ES',{day:'2-digit',month:'2-digit'})+' '+d.toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'}); }
+window.pintarUsuarios = function pintarUsuarios(){
+  const t=(document.getElementById('usu_buscar').value||'').trim().toLowerCase();
+  const filas=Object.entries(usuariosCache).sort(function(a,b){ return (a[1].nombre||'').localeCompare(b[1].nombre||''); });
+  let entran=0;
+  filas.forEach(function(x){ if(accesosCache[x[0]] && x[1].activo) entran++; });
+  document.getElementById('usu_resumen').textContent=filas.filter(function(x){ return x[1].activo; }).length+' activos · '+entran+' ya han entrado';
+  const lista=filas.filter(function(x){ return !t || [x[1].nombre, x[0], x[1].plt].join(' ').toLowerCase().includes(t); });
+  document.getElementById('usu_lista').innerHTML = lista.map(function(x){
+    const k=x[0], u=x[1], acc=accesosCache[k];
+    const nDisp=acc ? Object.keys(acc.dispositivos||{}).length : 0;
+    const estado = !u.activo ? '<span class="chip-usu" style="background:#eee;color:#777">Desactivado</span>'
+      : acc ? '<span class="chip-usu" style="background:#E6F4EA;color:var(--bm-green-dark)">✓ Entra</span> <span style="font-size:11px;color:#667">'+fechaHoraCorta(acc.ultimo)+(nDisp>3?' · ⚠ '+nDisp+' dispositivos':'')+'</span>'
+      : '<span class="chip-usu" style="background:var(--bm-amber-light);color:var(--bm-amber)">⏳ No ha entrado</span>'+(u.correoEnviado?' <span style="font-size:11px;color:#667">correo '+fechaHoraCorta(u.correoEnviado)+'</span>':'');
+    return '<div style="padding:9px 0;border-bottom:1px solid var(--bm-blue-light)">'+
+      '<div style="display:flex;justify-content:space-between;gap:8px"><div style="min-width:0"><b style="font-size:13px">'+escHtml(u.nombre||k)+'</b>'+
+      '<div style="font-size:11px;color:#667;overflow:hidden;text-overflow:ellipsis">'+escHtml(k)+(u.plt?' · '+escHtml(u.plt):'')+' · '+(ROLES_TXT[u.rol]||escHtml(u.rol))+(u.categorias&&u.categorias.length?' ('+escHtml(u.categorias.join(', '))+')':'')+'</div></div>'+
+      '<div style="white-space:nowrap;display:flex;gap:4px;align-items:flex-start"><button type="button" class="secondary-btn" style="width:auto;padding:4px 8px;font-size:11px" data-k="'+escHtml(k)+'" data-acc="correo">✉️</button>'+
+      '<button type="button" class="secondary-btn" style="width:auto;padding:4px 8px;font-size:11px" data-k="'+escHtml(k)+'" data-acc="activo">'+(u.activo?'Desactivar':'Reactivar')+'</button></div></div>'+
+      '<div style="margin-top:4px">'+estado+'</div></div>';
+  }).join('') || '<div class="hint">Sin usuarios.</div>';
+  document.querySelectorAll('#usu_lista button[data-k]').forEach(function(b){
+    b.onclick=function(){ const k=b.dataset.k; if(b.dataset.acc==='correo') enviarCorreoUsuario(k); else activarUsuario(k, !usuariosCache[k].activo); };
+  });
+}
+async function enviarCorreo(k){
+  await sendPasswordResetEmail(auth, k);
+  const cuando=new Date().toISOString();
+  await setDoc(doc(db,'usuarios',k), {correoEnviado:cuando}, {merge:true});
+  usuariosCache[k].correoEnviado=cuando;
+}
+async function enviarCorreoUsuario(k){
+  try{ await enviarCorreo(k); showStatus('Correo enviado a '+k, 'ok'); pintarUsuarios(); }
+  catch(e){ showStatus('No se pudo enviar: '+e.message, 'err'); }
+}
+window.enviarCorreoPendientes = async function enviarCorreoPendientes(){
+  const pendientes=Object.keys(usuariosCache).filter(function(k){ return usuariosCache[k].activo && !accesosCache[k] && !/\.local$/.test(k); });
+  if(!pendientes.length){ showStatus('Todos los usuarios activos han entrado ya.', 'ok'); return; }
+  if(!confirm('Se enviará el correo para crear la contraseña a '+pendientes.length+' persona(s) que aún no han entrado. ¿Continuar?')) return;
+  let ok=0;
+  for(const k of pendientes){ try{ await enviarCorreo(k); ok++; }catch(e){ console.error(k, e); } }
+  showStatus('Correo enviado a '+ok+' de '+pendientes.length+'.', 'ok');
+  pintarUsuarios();
+}
+async function activarUsuario(k, activo){
+  if(!activo && !confirm('¿Desactivar a '+(usuariosCache[k].nombre||k)+'? Dejará de poder entrar en todos sus dispositivos. Sus visitas no se tocan.')) return;
+  await setDoc(doc(db,'usuarios',k), {activo:activo}, {merge:true});
+  usuariosCache[k].activo=activo; pintarUsuarios();
+}
+function contrasenaAleatoria(){
+  const a=new Uint8Array(24); crypto.getRandomValues(a);
+  return Array.from(a, function(b){ return 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789'[b%57]; }).join('')+'!7a';
+}
+// Crea la cuenta de acceso sin cerrar la sesión de quien administra (instancia aparte de Firebase).
+let appAltas=null;
+async function crearCuentaAcceso(email){
+  if(!appAltas) appAltas=initializeApp(FIREBASE_CONFIG, 'altas');
+  const a2=getAuth(appAltas);
+  try{ await createUserWithEmailAndPassword(a2, email, contrasenaAleatoria()); await signOut(a2); return 'nueva'; }
+  catch(e){ if(e.code==='auth/email-already-in-use') return 'ya existía'; throw e; }
+}
+window.anadirUsuarios = async function anadirUsuarios(){
+  if(!comercialActual || comercialActual.rol!=='admin') return;
+  const log=document.getElementById('usu_log'); log.textContent='';
+  const enviar=document.getElementById('usu_enviar').checked;
+  const lineas=document.getElementById('usu_nuevos').value.split('\n').map(function(l){ return l.trim(); }).filter(function(l){ return l && !l.startsWith('#'); });
+  const ROLES_ENTRADA={comercial:'comercial', supervision:'supervision', 'supervisión':'supervision', supervisor:'supervision', direccion:'direccion', 'dirección':'direccion', admin:'admin', administracion:'admin', 'administración':'admin'};
+  const CATS=['F.VTA','TIENDA','COMANDO'];
+  let hechos=0;
+  for(const l of lineas){
+    const partes=l.split('|').map(function(x){ return (x||'').trim(); });
+    const nombre=partes[0], email=(partes[1]||'').toLowerCase(), rol=ROLES_ENTRADA[(partes[2]||'').toLowerCase()];
+    const plt=(partes[3]||'').toUpperCase();
+    const categorias=(partes[4]||'').split(',').map(function(x){ return x.trim().toUpperCase(); }).filter(Boolean);
+    const err=[];
+    if(!nombre) err.push('falta el nombre');
+    if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) err.push('correo no válido');
+    if(!rol) err.push('rol desconocido');
+    if(rol==='comercial' && !plt) err.push('falta el PLT');
+    if(plt && !comercialesPorId[plt]) err.push('el PLT '+plt+' no está en la lista de comerciales');
+    const malas=categorias.filter(function(c){ return CATS.indexOf(c)<0; }); if(malas.length) err.push('categoría desconocida: '+malas.join(', '));
+    if(err.length){ log.textContent+='✗ '+(nombre||l)+': '+err.join('; ')+'\n'; continue; }
+    try{
+      const cuenta=await crearCuentaAcceso(email);
+      const u={nombre:nombre, email:email, rol:rol, plt:plt, categorias:rol==='supervision'?categorias:[], activo:true,
+        creado:new Date().toISOString(), creadoPor:comercialActual.email};
+      await setDoc(doc(db,'usuarios',email), u, {merge:true});
+      usuariosCache[email]=Object.assign(usuariosCache[email]||{}, u);
+      if(enviar && !/\.local$/.test(email)) await enviarCorreo(email);
+      log.textContent+='✓ '+nombre+' ('+ROLES_TXT[rol]+') · cuenta '+cuenta+(enviar?' · correo enviado':'')+'\n';
+      hechos++;
+    }catch(e){ log.textContent+='✗ '+nombre+': '+e.message+'\n'; }
+  }
+  log.textContent+='\n'+hechos+' de '+lineas.length+' usuario(s) dados de alta.';
+  if(hechos===lineas.length) document.getElementById('usu_nuevos').value='';
+  pintarUsuarios();
+}
+
 /* ---------- alias de módulo: las funciones de arriba se colgaron de window
    (para que los onclick="..." del HTML las encuentren) pero eso NO las deja
    accesibles por su nombre corto dentro del propio módulo — estos alias sí,
@@ -3453,13 +3711,6 @@ const irA=window.irA, volver=window.volver, irAFranjas=window.irAFranjas,
 
 /* ---------- init ---------- */
 (async function init(){
-  try{
-    await signInAnonymously(auth);
-  }catch(err){
-    console.error(err);
-    showStatus('No se pudo conectar con el servidor. Recarga la página.', 'err');
-    return;
-  }
   document.getElementById('nv_cliente').addEventListener('input', function(){ buscarClienteDebounced(this.value); });
   document.getElementById('nv_partner').addEventListener('input', function(){ this.classList.remove('error'); buscarPartnerDebounced(this.value); });
   document.getElementById('cb_cliente').addEventListener('input', function(){
@@ -3472,22 +3723,12 @@ const irA=window.irA, volver=window.volver, irAFranjas=window.irAFranjas,
   });
   const ft=document.getElementById('fechaPlanificador');
   ft.value=hoyLocal();
-  try{
-    await cargarComerciales();
-  }catch(err){
-    console.error(err);
-    showStatus('No se pudieron cargar los Comerciales desde Firestore: '+err.message, 'err');
-  }
-
-  const pltGuardado=localStorage.getItem(LS_PLT);
-  const recordar=localStorage.getItem(LS_RECORDAR)==='1';
-  const info=pltGuardado ? comercialesPorId[pltGuardado] : null;
-  if(pltGuardado && recordar && info && info.activo!==false){
-    comercialActual={id:pltGuardado, nombre:info.nombre, esSupervisor:info.esSupervisor};
-    mostrarInicioConectado();
-  }else{
-    irA('bienvenida-plt', false);
-  }
+  // Acceso con usuario (15/10/2026): la sesión de Firebase queda guardada en el
+  // dispositivo; sin sesión (o con una anónima antigua) se pide correo y contraseña.
+  onAuthStateChanged(auth, function(user){
+    if(!user || user.isAnonymous){ comercialActual=null; mostrarLogin(); return; }
+    alEntrar(user);
+  });
 })();
 </script>
 </body>
