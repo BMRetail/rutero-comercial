@@ -3671,6 +3671,8 @@ window.anadirUsuarios = async function anadirUsuarios(){
   const lineas=document.getElementById('usu_nuevos').value.split('\n').map(function(l){ return l.trim(); }).filter(function(l){ return l && !l.startsWith('#'); });
   const ROLES_ENTRADA={comercial:'comercial', supervision:'supervision', 'supervisión':'supervision', supervisor:'supervision', direccion:'direccion', 'dirección':'direccion', admin:'admin', administracion:'admin', 'administración':'admin'};
   const CATS=['F.VTA','TIENDA','COMANDO'];
+  // la lista de comerciales del móvil se guarda un día: se relee para que un alta de hoy (p. ej. PLT nuevo) se reconozca (20/10/2026)
+  try{ aplicarComerciales(await leerComerciales(true)); }catch(e){ console.error(e); }
   let hechos=0;
   for(const l of lineas){
     const partes=l.split('|').map(function(x){ return (x||'').trim(); });
