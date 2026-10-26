@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BigMat – Protocolo de Visita Regional (Seguimiento de visitas)</title>
+<style>
+  :root{
+    --bg:#EDEEEC; --ink:#191C1E; --bm-blue:#024289; --bm-blue-light:#e8f0fa;
+    --bm-red:#E7191B; --slate:#232F38; --gris-borde:#d7dbe0; --blanco:#fff;
+    --ok:#1c8a4a; --warn:#c98a00; --shadow:0 2px 10px rgba(0,0,0,.08); --radius:12px;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#15181a; --ink:#eef0f1; --blanco:#20262a; --gris-borde:#333b40; --bm-blue-light:#0f2436;
+    }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:Arial,Helvetica,sans-serif}
+  header{background:var(--bm-blue);color:#fff;padding:18px 20px;box-shadow:var(--shadow);position:sticky;top:0;z-index:20}
+  header .top{display:flex;align-items:center;gap:12px;max-width:1100px;margin:0 auto}
+  header h1{font-size:1.15rem;margin:0;font-weight:800}
+  header .sub{font-size:.75rem;opacity:.85;margin-left:28px}
+  .conn{margin-left:auto;display:flex;align-items:center;gap:8px;font-size:.75rem}
+  .conn-dot{width:9px;height:9px;border-radius:50%;background:#c0392b}
+  .conn-dot.online{background:#2ecc71}
+  .btn-refresh{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.4);color:#fff;
+    border-radius:6px;padding:4px 10px;font-size:.72rem;cursor:pointer}
+  .btn-refresh:hover{background:rgba(255,255,255,.25)}
+  main{max-width:1100px;margin:0 auto;padding:18px 16px 60px}
+
+  .filtros{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+  .filtros select{border:1.5px solid var(--gris-borde);border-radius:8px;padding:8px 10px;
+    font-size:.85rem;background:var(--blanco);color:var(--ink);min-width:160px}
+
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:20px}
+  .kpi{background:var(--blanco);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px;position:relative}
+  .kpi .info{position:absolute;top:8px;right:10px;font-size:.8rem;color:#999;cursor:help}
+  .badge-completa{background:#e3f4e8;color:#1e7a3c}
+  .badge-incompleta{background:#fdf0d5;color:var(--warn)}
+  .resumen-visita{background:var(--blanco);border-radius:10px;padding:12px 14px;margin-bottom:12px;font-size:.84rem;line-height:1.6}
+  .resumen-visita b{color:var(--bm-blue)}
+  .btn-reabrir{background:none;border:1.5px solid var(--warn);color:var(--warn);border-radius:6px;padding:3px 10px;font-size:.75rem;font-weight:700;cursor:pointer;margin-left:8px}
+  .kpi .num{font-size:1.7rem;font-weight:800;color:var(--bm-blue);font-variant-numeric:tabular-nums}
+  .kpi .lbl{font-size:.75rem;color:#777;margin-top:2px}
+  .kpi.alerta .num{color:var(--bm-red)}
+
+  .card{background:var(--blanco);border-radius:var(--radius);box-shadow:var(--shadow);padding:18px;margin-bottom:16px}
+  .card h2{font-size:.95rem;margin:0 0 14px;color:var(--bm-blue);font-weight:800}
+
+  table{width:100%;border-collapse:collapse;font-size:.83rem}
+  th{text-align:left;padding:8px 10px;border-bottom:2px solid var(--gris-borde);color:#666;font-size:.72rem;
+    text-transform:uppercase;letter-spacing:.03em;position:sticky;top:0;background:var(--blanco)}
+  td{padding:8px 10px;border-bottom:1px solid var(--gris-borde)}
+  tr:hover td{background:var(--bm-blue-light)}
+  .scroll-y{max-height:480px;overflow:auto;-webkit-overflow-scrolling:touch}
+  .badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:.7rem;font-weight:700}
+  .badge-semanal{background:#e8f0fa;color:var(--bm-blue)}
+  .badge-mensual{background:#fdf0d5;color:var(--warn)}
+  .badge-especial{background:#f5e6f7;color:#7b2d8e}
+  .badge-alerta{background:#fde8e8;color:var(--bm-red)}
+  .badge-pendiente{background:#fdf0d5;color:var(--warn)}
+  .badge-completada{background:#e3f4e8;color:#1e7a3c}
+  .vacio{text-align:center;color:#888;padding:30px;font-size:.85rem}
+  .hidden{display:none!important}
+
+  .modal-back{position:fixed;inset:0;background:rgba(20,24,27,.5);display:none;align-items:center;justify-content:center;z-index:80;padding:16px}
+  .modal-back.show{display:flex}
+  .modal{background:var(--blanco);border-radius:var(--radius);padding:20px;width:100%;max-width:600px;max-height:80vh;overflow:auto}
+  pre{white-space:pre-wrap;word-break:break-word;font-size:.76rem;background:var(--bg);padding:10px;border-radius:8px;margin:0}
+  .btn{background:var(--bm-blue);color:#fff;border:none;border-radius:8px;padding:9px 16px;font-weight:700;font-size:.85rem;cursor:pointer}
+
+  /* ── Ficha de visita (detalle legible) ── */
+  .ficha{max-width:920px;max-height:92vh;padding:0;display:flex;flex-direction:column;overflow:hidden}
+  .ficha-head{padding:16px 20px 0;border-bottom:1px solid var(--gris-borde)}
+  .ficha-head .t{display:flex;align-items:flex-start;gap:12px}
+  .ficha-head h2{margin:0;font-size:1.15rem;color:var(--bm-blue)}
+  .ficha-head .meta{font-size:.8rem;color:#777;margin-top:4px;line-height:1.5}
+  .ficha-x{margin-left:auto;background:none;border:none;font-size:1.4rem;line-height:1;cursor:pointer;color:#888;padding:0 4px}
+  .tabs{display:flex;gap:4px;margin-top:14px;flex-wrap:wrap;align-items:flex-end}
+  .tab{background:none;border:none;border-bottom:3px solid transparent;padding:8px 12px;font-size:.88rem;font-weight:700;color:#777;cursor:pointer}
+  .tab.activa{color:var(--bm-blue);border-bottom-color:var(--bm-blue)}
+  .tab .n{display:inline-block;min-width:18px;padding:0 6px;margin-left:4px;border-radius:10px;font-size:.7rem;background:#fde8e8;color:var(--bm-red)}
+  .tab .n.cero{background:var(--bg);color:#999}
+  .solo-alertas{margin-left:auto;font-size:.78rem;color:#555;display:flex;align-items:center;gap:6px;padding:8px 0;cursor:pointer}
+  .ficha-body{overflow-y:auto;overflow-x:hidden;padding:16px 20px 20px;background:var(--bg)}
+  .grupo{background:var(--blanco);border-radius:10px;padding:12px 14px;margin-bottom:12px}
+  .grupo h3{margin:0 0 6px;font-size:.85rem;color:var(--bm-blue);text-transform:uppercase;letter-spacing:.03em}
+  .fila{padding:8px 0;border-top:1px solid var(--gris-borde)}
+  .fila:first-of-type{border-top:none}
+  .fila .q{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;font-size:.86rem}
+  .fila .q>span:first-child{min-width:0;overflow-wrap:anywhere}
+  .fila .plan{overflow-wrap:anywhere}
+  .fila .plan{font-size:.8rem;color:#555;margin-top:4px;padding-left:10px;border-left:3px solid var(--gris-borde)}
+  .fila.mal .plan{border-left-color:var(--bm-red)}
+  .chip{flex-shrink:0;display:inline-block;padding:2px 10px;border-radius:20px;font-size:.72rem;font-weight:700;white-space:nowrap}
+  .chip.neutro{white-space:normal;overflow-wrap:anywhere;max-width:60%;text-align:right;border-radius:10px}
+  .chip.ok{background:#e3f4e8;color:#1e7a3c}
+  .chip.mal{background:#fde8e8;color:var(--bm-red)}
+  .chip.neutro{background:var(--bm-blue-light);color:var(--bm-blue)}
+  .sin-datos{font-size:.8rem;color:#999;font-style:italic}
+  .tabla-fam{font-size:.78rem}
+  .tabla-fam th{position:static;font-size:.65rem;padding:6px 4px;text-align:center}
+  .tabla-fam th:first-child,.tabla-fam td:first-child{text-align:left}
+  .tabla-fam td{padding:6px 4px;text-align:center}
+  .tabla-fam tr:hover td{background:none}
+  .nota{display:inline-block;width:24px;height:24px;line-height:24px;border-radius:6px;font-weight:700}
+  .nota.n1,.nota.n2{background:#fde8e8;color:var(--bm-red)}
+  .nota.n3{background:#fdf0d5;color:var(--warn)}
+  .nota.n4,.nota.n5{background:#e3f4e8;color:#1e7a3c}
+  .ficha-json{margin-top:6px;font-size:.75rem}
+  .ficha-json summary{cursor:pointer;color:#999}
+  .scroll-x{overflow-x:auto}
+  body.solo-mal .fila.bien, body.solo-mal .grupo.sin-mal{display:none}
+  /* Acceso (login) */
+  #login-overlay{position:fixed;inset:0;background:var(--bg);display:none;align-items:flex-start;justify-content:center;z-index:100;padding:40px 16px;overflow:auto}
+  #login-overlay.show{display:flex}
+  .login-box{background:var(--blanco);border-radius:var(--radius);box-shadow:var(--shadow);width:100%;max-width:380px;overflow:hidden}
+  .login-head{background:var(--bm-blue);color:#fff;padding:16px 20px}
+  .login-head b{display:block;font-size:1rem} .login-head span{font-size:.75rem;opacity:.85}
+  .login-body{padding:20px}
+  .login-body label{display:block;font-size:.8rem;font-weight:700;margin:10px 0 4px}
+  .login-body input{width:100%;border:1.5px solid var(--gris-borde);border-radius:8px;padding:10px;font-size:.9rem;background:var(--blanco);color:var(--ink)}
+  .login-body .btn{width:100%;margin-top:16px;padding:13px}
+  .login-msg{font-size:.8rem;border-radius:8px;padding:10px 12px;margin-top:12px;display:none;line-height:1.4}
+  .login-msg.err{display:block;background:#fde8e8;color:var(--bm-red)}
+  .login-msg.ok{display:block;background:#e3f4e8;color:#1e7a3c}
+  .login-hint{font-size:.75rem;color:#777;margin:16px 0 0;line-height:1.4}
+  .link-btn{background:none;border:none;color:var(--bm-blue);text-decoration:underline;cursor:pointer;padding:0;font-size:.82rem}
+  .usuario{font-size:.72rem;text-align:right;line-height:1.3;margin-left:14px}
+  .usuario button{background:none;border:none;color:#fff;text-decoration:underline;font-size:.72rem;cursor:pointer;padding:0}
+  @media (max-width:600px){
+    .modal-back{padding:0}
+    .ficha{max-height:100vh;height:100vh;border-radius:0}
+    .ficha-head{padding:12px 14px 0}
+    .ficha-body{padding:12px}
+    .tab{padding:8px 8px}
+    .solo-alertas{margin-left:0;width:100%}
+  }
+</style>
+</head>
+<body>
+
+<!-- ══ ACCESO: correo de empresa + contraseña (se pide una vez por dispositivo) ══ -->
+<div id="login-overlay">
+  <div class="login-box">
+    <div class="login-head"><b>📊 Protocolo de Visita Regional</b><span>Seguimiento de visitas · acceso con tu correo de empresa</span></div>
+    <div class="login-body">
+      <label style="margin-top:0">Correo de empresa</label>
+      <input type="text" id="login-email" autocomplete="username" inputmode="email" placeholder="nombre.apellido@bigmat.biz">
+      <label>Contraseña</label>
+      <input type="password" id="login-pass" autocomplete="current-password" onkeydown="if(event.key==='Enter') entrar()">
+      <button class="btn" id="login-btn" onclick="entrar()">Entrar</button>
+      <div style="text-align:center;margin-top:14px"><button class="link-btn" onclick="olvideContrasena()">He olvidado mi contraseña</button></div>
+      <div class="login-msg" id="login-msg"></div>
+      <p class="login-hint">Solo se pide la primera vez en este dispositivo. Si aún no tienes contraseña, escribe tu correo y pulsa «He olvidado mi contraseña»: te llegará un enlace para crearla.</p>
+    </div>
+  </div>
+</div>
+
+<header>
+  <div class="top">
+    <div>
+      <h1>📊 Protocolo de Visita Regional</h1>
+      <div class="sub">Seguimiento de visitas — datos en vivo</div>
+    </div>
+    <div class="conn">
+      <span class="conn-dot" id="cdot"></span><span id="ctxt">Conectando…</span>
+      <button class="btn-refresh" onclick="actualizarAhora()">🔄 Actualizar ahora</button>
+      <div class="usuario hidden" id="usuario-info"><span id="usuario-nombre"></span><br><span id="enlace-inicio"><button onclick="location.href='PROTOCOLO_VISITA_REGIONAL_registro.html'">🏠 Inicio</button> · </span><button onclick="cerrarSesion()">Cerrar sesión</button></div>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="filtros">
+    <select id="f-director" onchange="aplicarFiltros()"><option value="">Todos los directores y regionales</option></select>
+    <select id="f-tienda" onchange="aplicarFiltros()"><option value="">Todas las tiendas</option></select>
+  </div>
+
+  <div class="kpis">
+    <div class="kpi"><span class="info" title="Número de visitas (pendientes y completadas) con los filtros elegidos.">ⓘ</span><div class="num" id="kpi-total">0</div><div class="lbl">Visitas registradas</div></div>
+    <div class="kpi"><span class="info" title="Tiendas con al menos una visita, con los filtros elegidos.">ⓘ</span><div class="num" id="kpi-tiendas">0</div><div class="lbl">Tiendas visitadas</div></div>
+    <div class="kpi"><span class="info" title="Tiendas de la red (21, o las tuyas si eres Director de Tienda) sin ninguna visita.">ⓘ</span><div class="num" id="kpi-sinvisitar">0</div><div class="lbl">Tiendas sin visitar</div></div>
+    <div class="kpi alerta"><span class="info" title="Suma de las respuestas en rojo de las visitas (las mismas que marca la ficha).">ⓘ</span><div class="num" id="kpi-alertas">0</div><div class="lbl">Ejes de mejora sin resolver</div></div>
+    <div class="kpi alerta"><span class="info" title="Ejes de mejora con plan de acción cuya fecha «¿Cuándo?» ya ha pasado. La app no registra todavía si la acción se hizo: es una alerta para revisarla, no una acción incumplida confirmada.">ⓘ</span><div class="num" id="kpi-vencidas">0</div><div class="lbl">Acciones con fecha vencida</div></div>
+    <div class="kpi alerta"><span class="info" title="Ejes de mejora sin plan de acción o sin fecha «¿Cuándo?».">ⓘ</span><div class="num" id="kpi-sinplan">0</div><div class="lbl">Ejes sin plan o sin fecha</div></div>
+  </div>
+
+  <div class="card">
+    <h2>Visitas registradas</h2>
+    <div class="scroll-y">
+      <table>
+        <thead>
+          <tr><th>Fecha</th><th>Tienda</th><th>Director Regional</th><th>Director de Tienda</th><th>Tipo</th><th>Estado</th><th>Finalizada</th><th>Completitud</th><th>Alertas</th><th></th></tr>
+        </thead>
+        <tbody id="tabla-visitas"></tbody>
+      </table>
+    </div>
+    <div class="vacio hidden" id="tabla-vacia">Todavía no hay visitas que coincidan con el filtro.</div>
+  </div>
+</main>
+
+<div class="modal-back" id="modal-detalle" onclick="if(event.target===this) cerrarFicha()">
+  <div class="modal ficha">
+    <div class="ficha-head">
+      <div class="t">
+        <div>
+          <h2 id="ficha-titulo"></h2>
+          <div class="meta" id="ficha-meta"></div>
+        </div>
+        <button class="ficha-x" onclick="cerrarFicha()" aria-label="Cerrar">✕</button>
+      </div>
+      <div class="tabs">
+        <button class="tab activa" data-tab="cliente" onclick="verPestana('cliente')">Cliente<span class="n" id="n-cliente"></span></button>
+        <button class="tab" data-tab="secciones" onclick="verPestana('secciones')">Secciones<span class="n" id="n-secciones"></span></button>
+        <button class="tab" data-tab="gestion" onclick="verPestana('gestion')">Gestión<span class="n" id="n-gestion"></span></button>
+        <label class="solo-alertas"><input type="checkbox" id="chk-solo-mal" onchange="document.body.classList.toggle('solo-mal', this.checked)"> Ver solo ejes de mejora</label>
+      </div>
+    </div>
+    <div class="ficha-body">
+      <div id="ficha-resumen"></div>
+      <div id="ficha-cliente"></div>
+      <div id="ficha-secciones" class="hidden"></div>
+      <div id="ficha-gestion" class="hidden"></div>
+      <details class="ficha-json hidden"><summary>Datos técnicos</summary><pre id="detalle-contenido"></pre></details>
+    </div>
+  </div>
+</div>
+
+<script>
+const DEFAULT_FIREBASE_CONFIG = {
+  apiKey: "AIzaSyBI_-WthIX8gVOAprrbsMYaohVYjfMPQbM",
+  databaseURL: "https://bigmat-protocolo-visita-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "bigmat-protocolo-visita",
+  appId: "1:550029945101:web:e52d621c118dd9ac816844",
+};
+
+let db=null, _ref, _onValue, _get;
+let visitasCache = {};
+const TIENDAS = ["EIXAMPLE","HOSPITALET","SABADELL","SANT_ADRIA","SANT_BOI","SANT_JUST","GRAU",
+  "VALLADOLID","BENAVENTE","PALENCIA","ALCALA","ALCOBENDAS","ALCORCON","ATOCHA",
+  "GARCIA_NOBLEJAS","GETAFE","FUENLABRADA","ILLESCAS","SABINILLAS","ESTEPONA","GARRUCHA"];
+
+// ══ ACCESO ══
+// Mismo sistema que la app de Registro: correo + contraseña y permisos en usuarios/<correo con comas>.
+// Regional, consulta y administración ven todas las visitas; un director de tienda, solo las de su tienda.
+const ADMINS = ['rossy.cuenca@bigmat.biz','li.lin@bigmat.biz'];
+let fbauthMod=null, authInst=null, perfil=null, fb=null, escuchas=[], mensajeLogin='';
+const visitasPorTienda = {};
+function claveDeEmail(e){ return String(e||'').trim().toLowerCase().replace(/\./g, ','); }
+function tiendasDelUsuario(){
+  if(!perfil || perfil.rol==='admin' || perfil.rol==='consulta' || perfil.rol==='regional') return null;
+  const t=perfil.tiendas||{};
+  return Object.keys(t).filter(x=>t[x]===true);
+}
+function msgLogin(texto, tipo){ const el=document.getElementById('login-msg'); el.textContent=texto||''; el.className='login-msg'+(texto?' '+tipo:''); }
+const ERRORES_ACCESO = {
+  'auth/invalid-credential':'Correo o contraseña incorrectos.', 'auth/wrong-password':'Correo o contraseña incorrectos.',
+  'auth/user-not-found':'Correo o contraseña incorrectos.', 'auth/invalid-email':'El correo no es válido.',
+  'auth/missing-password':'Escribe tu contraseña.',
+  'auth/too-many-requests':'Demasiados intentos. Espera unos minutos o pulsa «He olvidado mi contraseña».',
+  'auth/network-request-failed':'Sin conexión. Revisa la red e inténtalo de nuevo.',
+  'auth/user-disabled':'Tu usuario está desactivado. Contacta con Rossy Cuenca.',
+};
+window.entrar = async function(){
+  if(!authInst){ msgLogin('Conectando… inténtalo en unos segundos.', 'err'); return; }
+  const email=document.getElementById('login-email').value.trim(), pass=document.getElementById('login-pass').value;
+  if(!email){ msgLogin('Escribe tu correo de empresa.', 'err'); return; }
+  const btn=document.getElementById('login-btn'); btn.disabled=true; btn.textContent='Entrando…';
+  try{ await fbauthMod.signInWithEmailAndPassword(authInst, email, pass); msgLogin(''); }
+  catch(e){ msgLogin(ERRORES_ACCESO[e.code] || ('No se pudo entrar: '+e.message), 'err'); }
+  finally{ btn.disabled=false; btn.textContent='Entrar'; }
+};
+window.olvideContrasena = async function(){
+  const email=document.getElementById('login-email').value.trim();
+  if(!email){ msgLogin('Escribe primero tu correo de empresa y vuelve a pulsar «He olvidado mi contraseña».', 'err'); return; }
+  try{ await fbauthMod.sendPasswordResetEmail(authInst, email);
+    msgLogin('Si ese correo tiene usuario, te hemos enviado un enlace para crear tu contraseña. Revisa también el correo no deseado.', 'ok'); }
+  catch(e){ msgLogin(ERRORES_ACCESO[e.code] || ('No se pudo enviar el correo: '+e.message), 'err'); }
+};
+window.cerrarSesion = async function(){
+  try{ localStorage.removeItem(claveCache()); }catch(e){}
+  await fbauthMod.signOut(authInst); location.reload();
+};
+
+async function iniciarFirebase(cfg){
+  const { initializeApp } = await import('https://cdn.jsdelivr.net/npm/firebase@10.12.0/app/+esm');
+  const fbdb = await import('https://cdn.jsdelivr.net/npm/firebase@10.12.0/database/+esm');
+  fbauthMod = await import('https://cdn.jsdelivr.net/npm/firebase@10.12.0/auth/+esm');
+  fb=fbdb; _ref=fbdb.ref; _onValue=fbdb.onValue; _get=fbdb.get;
+  const app = initializeApp(cfg);
+  db = fbdb.getDatabase(app);
+  authInst = fbauthMod.getAuth(app); authInst.languageCode='es';
+
+  _onValue(_ref(db,'.info/connected'), s=>{
+    const ok = s.val();
+    document.getElementById('cdot').classList.toggle('online', !!ok);
+    document.getElementById('ctxt').textContent = ok?'En vivo':'Sin conexión';
+  });
+
+  fbauthMod.onAuthStateChanged(authInst, async user=>{
+    escuchas.forEach(off=>off()); escuchas=[];
+    if(!user || user.isAnonymous){
+      perfil=null;
+      document.getElementById('login-overlay').classList.add('show');
+      document.getElementById('usuario-info').classList.add('hidden');
+      if(mensajeLogin){ msgLogin(mensajeLogin,'err'); mensajeLogin=''; }
+      return;
+    }
+    const email=(user.email||'').toLowerCase();
+    let p=null;
+    try{ p=(await _get(_ref(db,'usuarios/'+claveDeEmail(email)))).val(); }catch(e){ console.error('[Protocolo Visita] perfil', e); }
+    if(ADMINS.includes(email)) p=Object.assign({nombre:email}, p||{}, {rol:'admin', activo:true});
+    if(!p || p.activo!==true){
+      mensajeLogin='Tu usuario no tiene acceso al Seguimiento de visitas. Contacta con Rossy Cuenca (rossy.cuenca@bigmat.biz).';
+      await fbauthMod.signOut(authInst); return;
+    }
+    perfil=p;
+    document.getElementById('login-overlay').classList.remove('show');
+    document.getElementById('usuario-nombre').textContent = perfil.nombre || email;
+    document.getElementById('usuario-info').classList.remove('hidden');
+    // El menú de inicio está en la app de Registro; los de solo consulta no lo usan.
+    document.getElementById('enlace-inicio').classList.toggle('hidden', perfil.rol==='consulta');
+    escucharVisitas();
+  });
+}
+// El listado lee el resumen precalculado (resumenVisitas: una ficha corta por visita, ≈300 bytes),
+// que mantiene la app de Registro. La visita completa solo se descarga al pulsar «Ver».
+// Director de tienda: una consulta por cada una de sus tiendas (las reglas solo le dejan leer esas).
+// Caché en el dispositivo (como en el Rutero): se pinta al instante con lo guardado y la
+// escucha en vivo lo sustituye en cuanto llega. Una clave por usuario; se borra al cerrar sesión.
+function claveCache(){ return 'protocolo_resumen_'+claveDeEmail((authInst.currentUser||{}).email); }
+function leerCacheResumen(){
+  try{ const c=JSON.parse(localStorage.getItem(claveCache())||'null'); return c && c.datos ? c.datos : null; }catch(e){ return null; }
+}
+function guardarCacheResumen(){
+  try{ localStorage.setItem(claveCache(), JSON.stringify({guardado:new Date().toISOString(), datos:visitasCache})); }catch(e){}
+}
+function escucharVisitas(){
+  const propias=tiendasDelUsuario();
+  const enCache=leerCacheResumen();
+  if(enCache){ visitasCache=enCache; poblarFiltros(); aplicarFiltros(); }
+  const pintar=()=>{ guardarCacheResumen(); poblarFiltros(); aplicarFiltros(); };
+  if(!propias){
+    escuchas.push(_onValue(_ref(db,'resumenVisitas'), s=>{ visitasCache = s.val() || {}; pintar(); },
+      e=>console.error('[Protocolo Visita] resumen', e)));
+    return;
+  }
+  propias.forEach(t=>{
+    const q=fb.query(_ref(db,'resumenVisitas'), fb.orderByChild('tienda'), fb.equalTo(t));
+    escuchas.push(_onValue(q, s=>{
+      visitasPorTienda[t]=s.val()||{};
+      visitasCache=Object.assign({}, ...Object.values(visitasPorTienda));
+      pintar();
+    }, e=>console.error('[Protocolo Visita] resumen '+t, e)));
+  });
+}
+iniciarFirebase(DEFAULT_FIREBASE_CONFIG);
+
+window.actualizarAhora = function(){
+  if(!db || !perfil) return;
+  escuchas.forEach(off=>off()); escuchas=[];
+  escucharVisitas();
+};
+
+// Ejes de mejora de una visita: los mismos que marca en rojo la ficha (ver fichaCliente/fichaSecciones/fichaGestion).
+function chipCompletitud(r){
+  const k=(r||{}).completitud;
+  if(!k || !k.total) return '<span title="Se calcula la próxima vez que alguien abra o guarde la visita">—</span>';
+  const ok=k.completas===k.total;
+  const falt=[].concat(k.sinContestar||[]);
+  return `<span class="badge ${ok?'badge-completa':'badge-incompleta'}" title="${ok?'Todas las pantallas contestadas o «No aplica»':'Sin contestar: '+esc(falt.join(', '))}">${k.completas}/${k.total}</span>`;
+}
+function contarAlertas(r){ const a=(r||{}).alertas||{}; return (a.cliente||0)+(a.secciones||0)+(a.gestion||0); }
+
+function poblarFiltros(){
+  const tiendas = new Set(), directores = new Set();
+  Object.values(visitasCache).forEach(v=>{
+    const c = v||{};
+    if(c.tienda) tiendas.add(c.tienda);
+    if(c.director) directores.add(c.director);
+  });
+  const selT = document.getElementById('f-tienda'), selD = document.getElementById('f-director');
+  const tActual = selT.value, dActual = selD.value;
+  selT.innerHTML = '<option value="">Todas las tiendas</option>' + [...tiendas].sort().map(t=>`<option>${t}</option>`).join('');
+  selD.innerHTML = '<option value="">Todos los directores y regionales</option>' + [...directores].sort().map(d=>`<option>${d}</option>`).join('');
+  selT.value = tActual; selD.value = dActual;
+}
+
+window.aplicarFiltros = function(){
+  const fTienda = document.getElementById('f-tienda').value;
+  const fDirector = document.getElementById('f-director').value;
+
+  const entradas = Object.entries(visitasCache).filter(([id, v])=>{
+    const c = v||{};
+    if(fTienda && c.tienda!==fTienda) return false;
+    if(fDirector && c.director!==fDirector) return false;
+    return true;
+  });
+
+  const tiendas = new Set(), directores = new Set();
+  let totalAlertas = 0, totalVencidas = 0, totalSinPlan = 0;
+  entradas.forEach(([id,v])=>{
+    const c=v||{};
+    if(c.tienda) tiendas.add(c.tienda);
+    if(c.director) directores.add(c.director);
+    totalAlertas += contarAlertas(v||{});
+    totalVencidas += (c.acciones||{}).vencidas||0;
+    totalSinPlan += (c.acciones||{}).sinPlanOFecha||0;
+  });
+
+  document.getElementById('kpi-total').textContent = entradas.length;
+  document.getElementById('kpi-tiendas').textContent = tiendas.size;
+  const universo = fTienda ? 1 : (tiendasDelUsuario() || TIENDAS).length;
+  document.getElementById('kpi-sinvisitar').textContent = Math.max(0, universo - tiendas.size);
+  document.getElementById('kpi-alertas').textContent = totalAlertas;
+  document.getElementById('kpi-vencidas').textContent = totalVencidas;
+  document.getElementById('kpi-sinplan').textContent = totalSinPlan;
+
+  const tbody = document.getElementById('tabla-visitas');
+  const ordenadas = entradas.sort((a,b)=>{
+    const fa=(a[1]||{}).fecha||'', fb=(b[1]||{}).fecha||'';
+    return fb.localeCompare(fa);
+  });
+  tbody.innerHTML = ordenadas.map(([id,v])=>{
+    const c=v||{};
+    const alertas = contarAlertas(v||{});
+    const claseTipo = 'badge-'+(c.tipoVisita||'').toLowerCase();
+    return `<tr>
+      <td>${c.fecha||''}</td>
+      <td>${c.tienda||''}</td>
+      <td>${c.director||''}</td>
+      <td>${c.directorTienda||''}</td>
+      <td><span class="badge ${claseTipo}">${c.tipoVisita||'-'}</span></td>
+      <td>${c.estado==='completada'?'<span class="badge badge-completada">Completada</span>':'<span class="badge badge-pendiente">Pendiente</span>'}${c.origen==='Forms'?' <span style="font-size:.68rem;color:#999">(Forms)</span>':''}</td>
+      <td>${c.estado==='completada' && c.completado ? fES(c.completado.slice(0,10)) : '—'}</td>
+      <td>${chipCompletitud(c)}</td>
+      <td>${alertas>0?`<span class="badge badge-alerta">${alertas}</span>`:'—'}</td>
+      <td><button class="btn-refresh" style="color:var(--bm-blue);border-color:var(--bm-blue)" onclick="verDetalle('${id}')">Ver</button></td>
+    </tr>`;
+  }).join('');
+  document.getElementById('tabla-vacia').classList.toggle('hidden', ordenadas.length>0);
+};
+
+// ══ FICHA DE VISITA (detalle legible) ══
+// Textos de las preguntas: los mismos que ve el director en _registro.html.
+const CJ_PUNTOS = [['parking','Parking'],['entrada','Entrada'],['recepcion','Recepción'],['flujo_circulacion','Flujo de circulación'],
+  ['disponibilidad_producto','Disponibilidad de producto'],['atencion_comercial','Atención comercial'],['paso_cajas','Paso por cajas'],
+  ['carga','Carga'],['salida','Salida']];
+const NPS_VAL = [['facilidadProducto','Facilidad para encontrar el producto'],['atencionEquipo','Atención del equipo'],
+  ['tiempoEsperaCaja','Tiempo de espera en caja'],['disponibilidadProducto','Disponibilidad del producto'],['precio','Precio']];
+const TR_VAL = [['puntualidad','Puntualidad de la entrega'],['estadoMercancia','Estado de la mercancía'],
+  ['tratoTransportista','Trato del transportista'],['informacionEntrega','Información sobre la entrega']];
+const FAMILIAS = [['alimentacionAgua','Alimentación agua'],['accFontaneria','Acc. fontanería'],['accInstalacionesElectricas','Acc. instalaciones eléctricas'],
+  ['cable','Cable'],['mecanismos','Mecanismos'],['adhesivos','Adhesivos'],['herramientasPintor','Herramientas pintor'],
+  ['proteccion','Protección'],['accHerramienta','Acc. herramienta'],['tornilleria','Tornillería']];
+const ATRIB = [['lleno','Lleno'],['sensacionLleno','Sens. lleno'],['balizado','Balizado'],['limpieza','Limpieza'],
+  ['facing','Facing'],['roturas','Roturas'],['fueraDeSitio','Fuera de sitio']];
+const IMPL_PUNTOS = [['cabecera','Cabecera'],['zonasAccion','Zonas de acción'],['ganchosStrips','Ganchos strips'],['cajas','Cajas']];
+const IMPL_PREG = [['directrices','¿Cumple las directrices de la Compañía?'],['ventas','¿% de ventas por encima de la media de la región?'],
+  ['efectividad','¿Efectividad por encima de la media de la región?']];
+const DEPTS = [['cajas','Cajas'],['comercio','Comercio'],['drive','Drive'],['transporte','Transporte'],['logistica','Logística']];
+// [nodo, título, [[clave, pregunta, siEsBueno]]]
+const GESTION_GRUPOS = [
+  ['productividad','Productividad',[['productividad','¿Productividad igual o superior al objetivo de 300.000€?',true]]],
+  ['recursos','Recursos vs afluencia',[['recursosAfluencia','¿Los recursos coinciden con la afluencia?',true]]],
+  ['seguridad','Seguridad',[['epis','¿Es correcto el uso de EPIs?',true],['estibacion','¿Es correcta la estibación?',true],
+    ['cargaClientes','¿Es correcta la carga a clientes?',true],['manipulacion','¿Es correcta la manipulación?',true],['ordenLimpieza','¿Hay orden y limpieza?',true]]],
+  ['ventas','Ventas vs N-1',[['tienda','La tienda, ¿crece vs N-1?',true],['construccion','Construcción',true],['madera','Madera',true],
+    ['pintura','Pintura',true],['ceramica','Cerámica',true],['sanitario','Sanitario',true],['electricidad','Electricidad',true],
+    ['fontaneria','Fontanería',true],['cocinas','Cocinas',true],['totalGeneral','Total general',true]]],
+  ['precios','Precios y cheques',[['preciosForzados','¿Mejora el ratio de precios forzados?',true],['cheques','¿Mejora el ratio de cheques?',true]]],
+  ['demarcaStock','Demarca y stock',[['demarca','¿Demarca sobre la CV inferior al 0,8%?',true],['inventariosRotativos','¿Cumple los inventarios rotativos?',true],
+    ['fiabilidadStock','¿Cumple el ratio de fiabilidad de stock?',true]]],
+  ['workflows','Workflows',[['pendientes','¿Hay workflows pendientes?',false],['vencidos','¿Hay workflows vencidos?',false],
+    ['criticos','¿Hay workflows críticos (más de 30 días)?',false]]],
+];
+
+function esc(s){ return String(s??'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function fES(iso){ const p=String(iso||'').split('-'); return p.length===3 ? `${p[2]}/${p[1]}/${p[0]}` : (iso||''); }
+function planHtml(plan, cuando){
+  if(!plan && !cuando) return '';
+  return `<div class="plan">${plan?esc(plan):'<span class="sin-datos">Sin plan de acción</span>'}${cuando?` <strong>· ${fES(cuando)}</strong>`:''}</div>`;
+}
+// Una fila pregunta → respuesta. estado: 'ok' | 'mal' | 'neutro'
+function fila(pregunta, respuesta, estado, plan, cuando){
+  return `<div class="fila ${estado==='mal'?'mal':'bien'}"><div class="q"><span>${esc(pregunta)}</span>
+    <span class="chip ${estado}">${esc(respuesta)}</span></div>${planHtml(plan, cuando)}</div>`;
+}
+function filaSiNo(pregunta, d, siEsBueno){
+  if(!d || (d.cumple!==true && d.cumple!==false)) return '';
+  const bueno = siEsBueno ? d.cumple : !d.cumple;
+  return fila(pregunta, d.cumple?'Sí':'No', bueno?'ok':'mal', d.plan, d.fecha||d.cuando);
+}
+function filaTexto(pregunta, valor, plan, cuando){
+  return (valor || plan) ? fila(pregunta, valor||'—', 'neutro', plan, cuando) : '';
+}
+function grupo(titulo, filasHtml){
+  if(!filasHtml) return '';
+  const hayMal = filasHtml.includes('class="fila mal');
+  return `<div class="grupo${hayMal?'':' sin-mal'}"><h3>${esc(titulo)}</h3>${filasHtml}</div>`;
+}
+const VACIO = '<div class="grupo"><span class="sin-datos">Todavía no se ha rellenado este bloque.</span></div>';
+
+function fichaCliente(c){
+  if(!c) return VACIO;
+  let h='';
+  const cj=c.customerJourney||{};
+  h+=grupo('Customer Journey', CJ_PUNTOS.map(([k,l])=>{
+    const d=cj[k]; if(!d) return '';
+    return d.ejeMejora ? fila(l,'Eje de mejora','mal',d.que,d.cuando) : fila(l,'Correcto','ok');
+  }).join(''));
+  const tc=c.tiempoCompra||{};
+  [['drive','Cliente Drive'],['tienda','Cliente Tienda'],['mixto','Cliente Mixto']].forEach(([k,l])=>{
+    const d=tc[k]; if(!d) return;
+    if(d.noAplica){ h+=grupo(l, fila('Este tipo de cliente en la visita','No aplica','neutro')); return; }
+    let f='';
+    const hr=d.horario||{};
+    if(hr.horaEntrada||hr.horaSalida) f+=fila('Hora entrada – salida', `${hr.horaEntrada||'?'} – ${hr.horaSalida||'?'}`, 'neutro');
+    const n=d.nps;
+    if(n && n.tipoCliente==='Compró'){
+      const nota=Number(n.notaRecomendacion);
+      if(n.notaRecomendacion!=='' && n.notaRecomendacion!=null) f+=fila('¿Recomendaría la tienda? (0-10)', n.notaRecomendacion, nota>=9?'ok':(nota<=6?'mal':'neutro'));
+      NPS_VAL.forEach(([vk,vl])=>{ const v=(n.valoraciones||{})[vk]; if(v) f+=fila(vl, v, /malo/i.test(v)?'mal':(/bueno|excelente/i.test(v)?'ok':'neutro')); });
+      f+=fila('¿Primera compra?', n.primeraCompra?'Sí':'No', 'neutro');
+      if(n.mejorar) f+=fila('Qué mejoraría', '', 'neutro', n.mejorar);
+    } else if(n && n.tipoCliente==='No compró'){
+      f+=fila('¿Compró?', 'No compró', 'mal', [n.motivo, n.porque].filter(Boolean).join(' — '));
+      if(n.probabilidadVolver) f+=fila('Probabilidad de volver', n.probabilidadVolver, 'neutro');
+      if(n.queMejorar) f+=fila('Qué tendríamos que mejorar', '', 'neutro', n.queMejorar);
+      f+=fila('¿Encontró ayuda?', n.encontroAyuda?'Sí':'No', n.encontroAyuda?'ok':'mal');
+    }
+    h+=grupo(l, f);
+  });
+  const cap=c.captacion||{};
+  h+=grupo('Captación',
+    filaSiNo('¿Cumple el objetivo semanal de cheques de captación?', cap.cheques, true)
+    + [1,2,3].map(i=>filaSiNo(`¿Crece el nº de clientes vs semana anterior? (semana -${i})`, cap['creceSemana'+i], true)).join('')
+    + (cap.tasaConversion ? filaTexto('Tasa de conversión de cheques', cap.tasaConversion.valor, cap.tasaConversion.plan, cap.tasaConversion.fecha) : ''));
+  const comp=c.competencia ? Object.values(c.competencia).filter(Boolean) : [];
+  if(c.competenciaNoAplica) h+=grupo('Competencia', fila('Competencia en la visita','No aplica','neutro'));
+  else h+=grupo('Competencia', comp.map(d=>d.competidor||d.observaciones||d.acciones ?
+    fila(d.competidor||'Competidor', '', 'neutro', [d.observaciones, d.acciones && 'Acciones: '+d.acciones].filter(Boolean).join(' — ')) : '').join(''));
+  const t=c.transporte;
+  if(c.transporteNoAplica) h+=grupo('Transporte', fila('Transporte en la visita','No aplica','neutro'));
+  else if(t){
+    let f='';
+    if(t.tipoCliente) f+=fila('Tipo de cliente', t.tipoCliente, 'neutro');
+    TR_VAL.forEach(([vk,vl])=>{ const v=(t.valoraciones||{})[vk]; if(v) f+=fila(vl, v, /malo/i.test(v)?'mal':(/bueno|excelente/i.test(v)?'ok':'neutro')); });
+    f+= t.entregaSinIncidencias ? fila('Entrega completa y sin incidencias','Sí','ok') : fila('Entrega completa y sin incidencias','Hubo incidencia','mal', t.incidenciaDetalle);
+    if(t.npsTransporte!=='' && t.npsTransporte!=null) f+=fila('NPS transporte (0-10)', t.npsTransporte, Number(t.npsTransporte)>=9?'ok':(Number(t.npsTransporte)<=6?'mal':'neutro'));
+    if(t.queMejorar) f+=fila('Qué mejoraría del transporte', '', 'neutro', t.queMejorar);
+    h+=grupo('Transporte', f);
+  }
+  const ca=c.cartera||{}, m=ca.metricas||{}, cp=ca.clientePrincipal;
+  h+=grupo('Cartera',
+    (m.sinCompra?filaTexto('Clientes sin compra en el mes', m.sinCompra.numero, m.sinCompra.plan, m.sinCompra.fecha):'')
+    + filaTexto('Consumo del crédito concedido', m.consumoCredito)
+    + (m.pocasSecciones?filaTexto('% clientes con compras en 3 secciones o menos', m.pocasSecciones.valor, m.pocasSecciones.plan, m.pocasSecciones.fecha):'')
+    + filaTexto('Clientes en riesgo (sin compra la semana anterior)', m.clientesRiesgo)
+    + filaTexto('% de clientes que generan el 50% de la venta', m.clientes50pct)
+    + (cp && (cp.nombre||cp.obra) ? fila('Cliente principal: '+(cp.nombre||'')+(cp.obra?' · Obra: '+cp.obra:''), '', 'neutro',
+        [cp.observaciones, cp.acciones && 'Acciones: '+cp.acciones].filter(Boolean).join(' — ')) : ''));
+  return h || VACIO;
+}
+
+function fichaSecciones(s){
+  if(!s) return VACIO;
+  let h='';
+  const r=s.rupturas;
+  if(r) h+=grupo('Rupturas',
+    filaTexto('% de rupturas + futuras rupturas', r.porcentaje, r.planTrabajo, r.cuandoTrabajo)
+    + filaTexto('Familias críticas', r.familiasCriticas, r.planAccion, r.cuandoAccion));
+  const fam=s.familias||{};
+  const filasFam = FAMILIAS.filter(([k])=>fam[k]);
+  if(filasFam.length){
+    const peor = d => Math.min(...ATRIB.map(([a])=>Number(d[a])||9));
+    h+=`<div class="grupo${filasFam.some(([k])=>peor(fam[k])<=2)?'':' sin-mal'}"><h3>Familias de lineal (1 = mal · 5 = bien)</h3><div class="scroll-x"><table class="tabla-fam">
+      <thead><tr><th>Familia</th>${ATRIB.map(([,l])=>`<th>${l}</th>`).join('')}</tr></thead><tbody>
+      ${filasFam.map(([k,l])=>{ const d=fam[k];
+        return `<tr class="fila ${peor(d)<=2?'mal':'bien'}"><td><strong>${esc(l)}</strong></td>${ATRIB.map(([a])=>`<td>${d[a]?`<span class="nota n${esc(d[a])}">${esc(d[a])}</span>`:'—'}</td>`).join('')}</tr>
+          ${d.plan||d.cuando?`<tr class="fila ${peor(d)<=2?'mal':'bien'}"><td colspan="8" style="text-align:left;padding-top:0">${planHtml(d.plan,d.cuando)}</td></tr>`:''}`;
+      }).join('')}</tbody></table></div></div>`;
+  }
+  const imp=s.implantacion||{};
+  IMPL_PUNTOS.forEach(([p,pl])=>{
+    h+=grupo('Implantación — '+pl, IMPL_PREG.map(([q,ql])=>filaSiNo(ql, imp[`${p}_${q}`], true)).join(''));
+  });
+  return h || VACIO;
+}
+
+function fichaGestion(g){
+  if(!g) return VACIO;
+  let h='';
+  h+=grupo('Productividad', filaSiNo(GESTION_GRUPOS[0][2][0][1], (g.productividad||{}).productividad, true));
+  const ho=g.horas||{};
+  const nums=(a,b)=>[a&&a.valor&&'Personas: '+a.valor, b&&b.valor&&'Horas: '+b.valor].filter(Boolean).join(' · ');
+  h+=grupo('Horas',
+    (ho.excesos ? fila('¿Hay personas con excesos de horas?', ho.excesos.cumple?'Sí':'No', ho.excesos.cumple?'mal':'ok',
+        [nums(ho.excesosPersonas, ho.excesosHoras), ho.excesos.plan].filter(Boolean).join(' — '), ho.excesos.fecha) : '')
+    + (ho.defecto ? fila('¿Hay personas con defecto de horas?', ho.defecto.cumple?'Sí':'No', ho.defecto.cumple?'mal':'ok',
+        [nums(ho.defectoPersonas, ho.defectoHoras), ho.defecto.plan].filter(Boolean).join(' — '), ho.defecto.fecha) : ''));
+  const it=g.indiceTienda;
+  if(it) h+=grupo('Índice de la tienda', it.valor ? fila('¿El índice de la tienda es?', it.valor, /peor/i.test(it.valor)?'mal':(/mejor/i.test(it.valor)?'ok':'neutro'), it.plan, it.cuando) : '');
+  h+=grupo('Recursos vs afluencia', filaSiNo(GESTION_GRUPOS[1][2][0][1], (g.recursos||{}).recursosAfluencia, true));
+  [['horasPunta','Horas punta — ¿todos disponibles para el cliente?'],['horasValle','Horas valle — ¿tareas acordes a la situación?']].forEach(([nodo,titulo])=>{
+    const d=g[nodo]||{};
+    h+=grupo(titulo, DEPTS.map(([k,l])=>{
+      const n=(d[k+'Numero']||{}).valor;
+      const b=d[k];
+      if(!b && !n) return '';
+      if(!b) return fila(l+(n?` (${n})`:''), '—', 'neutro');
+      return fila(l+(n?` — ${n}`:''), b.cumple?'Sí':'No', b.cumple?'ok':'mal', b.plan, b.fecha);
+    }).join(''));
+  });
+  GESTION_GRUPOS.slice(2).forEach(([nodo,titulo,items])=>{
+    const d=g[nodo]||{};
+    h+=grupo(titulo, items.map(([k,l,bueno])=>filaSiNo(l, d[k], bueno)).join(''));
+  });
+  return h || VACIO;
+}
+
+function contarMal(html){ return (html.match(/class="fila mal/g)||[]).length - (html.match(/<tr class="fila mal"><td colspan/g)||[]).length; }
+
+const detallesCache = {};   // id -> {actualizado, v}: la visita completa solo se descarga si ha cambiado
+window.verDetalle = async function(id){
+  const marca=(visitasCache[id]||{}).actualizado||'';
+  let v;
+  if(detallesCache[id] && detallesCache[id].actualizado===marca) v=detallesCache[id].v;
+  else{
+    try{ v = (await _get(_ref(db,'visitas/'+id))).val() || {}; }
+    catch(e){ alert('No se pudo cargar la visita: '+e.message); return; }
+    detallesCache[id]={actualizado:marca, v};
+  }
+  const c = v.cabecera || {};
+  document.getElementById('ficha-titulo').textContent = `${c.tienda||'?'} · ${fES(c.fecha)}`;
+  document.getElementById('ficha-meta').innerHTML =
+    `Director Regional: <strong>${esc(c.director||'—')}</strong> · Director de Tienda: <strong>${esc(c.directorTienda||'—')}</strong><br>`
+    + `${esc(c.tipoVisita||'')} · ${c.estado==='completada'?'<span class="badge badge-completada">Completada</span>':'<span class="badge badge-pendiente">Pendiente</span>'}`
+    + (c.origen==='Forms'?' <span style="font-size:.72rem;color:#999">(empezada en Forms)</span>':'')
+    + (perfil && perfil.rol==='admin' && c.estado==='completada' ? ` <button class="btn-reabrir" onclick="reabrirVisita('${id}')">↺ Reabrir visita</button>` : '');
+  document.getElementById('ficha-resumen').innerHTML = resumenVisitaHtml(c, visitasCache[id]||{});
+  const bloques = {cliente: fichaCliente(v.cliente), secciones: fichaSecciones(v.secciones), gestion: fichaGestion(v.gestion)};
+  Object.entries(bloques).forEach(([k,html])=>{
+    document.getElementById('ficha-'+k).innerHTML = html;
+    const n = contarMal(html), el = document.getElementById('n-'+k);
+    el.textContent = n; el.classList.toggle('cero', n===0);
+  });
+  document.getElementById('detalle-contenido').textContent = JSON.stringify(v, null, 2);
+  document.querySelector('.ficha-json').open = false;
+  // «Datos técnicos» (la visita tal como está guardada): solo para administración
+  document.querySelector('.ficha-json').classList.toggle('hidden', !(perfil && perfil.rol==='admin'));
+  verPestana('cliente');
+  document.getElementById('modal-detalle').classList.add('show');
+};
+// «Resumen de la visita»: quién y cuándo, completitud y acciones (de la ficha precalculada).
+function resumenVisitaHtml(c, r){
+  const fh=iso=>{ if(!iso) return ''; const d=new Date(iso); return d.toLocaleDateString('es-ES')+' '+d.toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'}); };
+  const quien=o=>(o && (o.nombre||o.email))||'';
+  const lin=[];
+  lin.push(`<b>Iniciada:</b> ${fh(c.creado)||'—'}${quien(c.registradoPor)?' por '+esc(quien(c.registradoPor)):(c.origen==='Forms'?' (cargada de los Forms)':'')}`);
+  if(c.continuadoPor) lin.push(`<b>Continuada:</b> ${fh(c.continuadoPor.fecha)} por ${esc(quien(c.continuadoPor))}`);
+  lin.push(c.estado==='completada'
+    ? `<b>Finalizada:</b> ${fh(c.completado)||'—'}${c.completadoPor?' por '+esc(quien(c.completadoPor)):''}`
+    : `<b>Finalizada:</b> todavía no (pendiente)`);
+  const k=r.completitud;
+  if(k && k.total){
+    lin.push(`<b>Completitud:</b> ${k.completas} de ${k.total} pantallas contestadas o «No aplica»`);
+    if((k.sinContestar||[]).length) lin.push(`<b>Pantallas sin contestar (${k.sinContestar.length}):</b> ${esc(k.sinContestar.join(', '))}`);
+    if((k.noAplica||[]).length) lin.push(`<b>No aplica:</b> ${esc(k.noAplica.join(', '))}`);
+  } else lin.push('<b>Completitud:</b> se calculará la próxima vez que alguien abra o guarde la visita');
+  const a=r.acciones||{};
+  if(a.total) lin.push(`<b>Ejes de mejora con plan:</b> ${a.total} · sin plan o sin fecha: ${a.sinPlanOFecha||0} · con fecha vencida: ${a.vencidas||0}`);
+  return `<div class="resumen-visita">${lin.join('<br>')}</div>`;
+}
+// Administración: vuelve a dejar pendiente una visita cerrada (para que la terminen).
+window.reabrirVisita = async function(id){
+  const r=visitasCache[id]||{};
+  if(!confirm(`¿Reabrir la visita de ${r.tienda||''} del ${fES(r.fecha)}? Volverá a aparecer como pendiente para que la completen.`)) return;
+  try{
+    await fb.update(_ref(db,'visitas/'+id+'/cabecera'), {estado:'pendiente', pendienteTienda:r.tienda, completado:null, completadoPor:null});
+    await fb.update(_ref(db,'resumenVisitas/'+id), {estado:'pendiente', completado:'', completadoPor:'', actualizado:new Date().toISOString()});
+    delete detallesCache[id];
+    cerrarFicha();
+    alert('Visita reabierta: aparecerá como pendiente en su tienda.');
+  }catch(e){ alert('No se pudo reabrir: '+e.message); }
+};
+window.verPestana = function(tab){
+  document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('activa', b.dataset.tab===tab));
+  ['cliente','secciones','gestion'].forEach(k=>document.getElementById('ficha-'+k).classList.toggle('hidden', k!==tab));
+  document.querySelector('.ficha-body').scrollTop = 0;
+};
+window.cerrarFicha = function(){ document.getElementById('modal-detalle').classList.remove('show'); };
+document.addEventListener('keydown', e=>{ if(e.key==='Escape') cerrarFicha(); });
+</script>
+</body>
+</html>
