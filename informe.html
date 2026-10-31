@@ -157,7 +157,7 @@ details summary{cursor:pointer;color:var(--bm-blue);font-weight:700}
 
   <details><summary>Notas y metodología</summary>
     <p><b>Periodo</b>: la actividad (visitas) usa las fechas exactas del periodo. Las ventas comparan con el mismo periodo del año anterior hasta el mismo día; con «Esta semana» o «Semana pasada» las ventas son las del mes en curso.</p>
-    <p><b>Cumplimiento</b> = visitas realizadas / visitas del periodo. <b>Conversión</b> = visitas con «Pedido cerrado» / realizadas. <b>Importe</b> = importe de los pedidos cerrados que apuntan los comerciales.</p>
+    <p><b>Cumplimiento</b> = visitas realizadas / visitas del periodo. <b>Conversión</b> = visitas con «Pedido cerrado» / realizadas (sin contar las de resultado «No estaba»). <b>Importe</b> = importe de los pedidos cerrados que apuntan los comerciales.</p>
     <p><b>Caen sin visita</b> = clientes que bajan un 10 % o más en el año (o sin compras en 6 meses) y sin visita en 30 días. <b>+60 días</b> cuenta la visita de cualquier compañero. <b>Crédito sin utilizar</b> = límite de crédito menos saldo, solo clientes con límite. <b>Dejan una sección</b> = en 12 meses compraban 1.000 € o más y han caído a la mitad o menos.</p>
     <p>Ventas sin la sección OTROS. <b>Ex comerciales</b>: no salen salvo que se marque «Incluir ex comerciales»; sus visitas se conservan.</p>
   </details>
@@ -337,9 +337,9 @@ const kpi=(n,l,d,al)=>'<div class="kpi'+(al?' alerta':'')+'"><div class="num">'+
 // ---- actividad ----
 function actividad(ids){
   const [ini,fin]=rango(F.periodo), set=new Set(ids);
-  const por={}; ids.forEach(i=>por[i]={tot:0,real:0,ped:0,imp:0,cli:new Set()});
+  const por={}; ids.forEach(i=>por[i]={tot:0,real:0,ped:0,imp:0,cli:new Set(),noE:0});
   D.visitas.forEach(v=>{ if(!set.has(v.comercialId)||v.fechaVisita<ini||v.fechaVisita>fin||(F.cliente&&v.clientePartner!==F.cliente.partner)) return; const e=por[v.comercialId]; e.tot++;
-    if(v.estadoVisita==='Realizada'){e.real++;e.cli.add(v.clientePartner);} if(v.resultadoVisita==='Pedido cerrado'){e.ped++;e.imp+=Number(v.importePedido)||0;} });
+    if(v.estadoVisita==='Realizada'){e.real++;e.cli.add(v.clientePartner);if(v.resultadoVisita==='No estaba')e.noE++;} if(v.resultadoVisita==='Pedido cerrado'){e.ped++;e.imp+=Number(v.importePedido)||0;} });
   return por;
 }
 function accionesVencidas(ids){
@@ -350,7 +350,7 @@ function accionesVencidas(ids){
 }
 function pintarResumen(){
   const cs=comFiltrados(), ids=cs.map(c=>c.id), por=actividad(ids);
-  const T={tot:0,real:0,ped:0,imp:0,cli:new Set()}; Object.values(por).forEach(e=>{T.tot+=e.tot;T.real+=e.real;T.ped+=e.ped;T.imp+=e.imp;e.cli.forEach(x=>T.cli.add(x));});
+  const T={tot:0,real:0,ped:0,imp:0,cli:new Set(),noE:0}; Object.values(por).forEach(e=>{T.tot+=e.tot;T.real+=e.real;T.ped+=e.ped;T.imp+=e.imp;T.noE+=e.noE;e.cli.forEach(x=>T.cli.add(x));});
   const C={cli:0,caen:0,sin60:0,conVenc:0,venc:0,libre:0}; const rc={}; ids.forEach(i=>{const r=resumenCartera(i); rc[i]=r; if(!r)return; Object.keys(C).forEach(k=>C[k]+=(k==='cli'?r.clientes:r[k]));});
   const [ini,fin]=rango(F.periodo);
   document.getElementById('tAct').textContent='Actividad · '+PERIODOS[F.periodo].toLowerCase()+' ('+fd(ini)+' – '+fd(fin)+')';
@@ -358,7 +358,7 @@ function pintarResumen(){
     kpi(T.tot.toLocaleString('es-ES'),'Visitas del periodo',cs.length+' comercial'+(cs.length===1?'':'es'))+
     kpi(T.real.toLocaleString('es-ES'),'Realizadas',T.cli.size+' clientes distintos')+
     kpi((pct(T.real,T.tot)??'—')+' %','Cumplimiento de agenda')+
-    kpi((pct(T.ped,T.real)??'—')+' %','Conversión',T.ped+' pedidos cerrados')+
+    kpi((pct(T.ped,T.real-T.noE)??'—')+' %','Conversión',T.ped+' pedidos cerrados')+
     kpi(dinero(T.imp),'Importe de pedidos')+
     kpi(accionesVencidas(ids),'Próximas acciones vencidas','',true);
   document.getElementById('kpisCart').innerHTML=
@@ -367,7 +367,7 @@ function pintarResumen(){
     kpi(C.sin60,'+60 días sin visita',C.cli?Math.round(C.sin60/C.cli*100)+' % de la cartera':'',true)+
     kpi(dinero(C.libre),'Crédito sin utilizar','potencial de compra a crédito')+
     kpi(C.conVenc,'Con deuda vencida',dinero(C.venc),true);
-  const filas=cs.map(c=>{const e=por[c.id], r=rc[c.id]||{};return {c,e,r,cum:pct(e.real,e.tot),conv:pct(e.ped,e.real)};}).sort((a,b)=>(b.e.tot-a.e.tot)||a.c.nombre.localeCompare(b.c.nombre));
+  const filas=cs.map(c=>{const e=por[c.id], r=rc[c.id]||{};return {c,e,r,cum:pct(e.real,e.tot),conv:pct(e.ped,e.real-e.noE)};}).sort((a,b)=>(b.e.tot-a.e.tot)||a.c.nombre.localeCompare(b.c.nombre));
   document.getElementById('tablaCom').innerHTML='<table><tr><th>Comercial</th><th>Cat.</th><th>Región</th><th class="r">Visitas</th><th class="r">Realiz.</th><th class="r">Cumpl.</th><th class="r">Conv.</th><th class="r">Importe</th><th class="r">Cartera</th><th class="r">Caen s/v</th><th class="r">+60 d</th><th class="r">Ventas</th><th class="r">Var.</th></tr>'+
     filas.map(f=>'<tr class="click" onclick="filtrarCom(\''+f.c.id+'\')"><td><b>'+esc(nombre(f.c.nombre))+'</b>'+(f.c.activo?'':'<span class="ex">EX</span>')+'</td><td>'+esc(f.c.categoria)+'</td><td>'+esc(nombre((f.c.region||'—').replace(/_/g,' ')))+'</td>'+
       '<td class="r">'+f.e.tot+'</td><td class="r">'+f.e.real+'</td><td class="r">'+(f.e.tot?semaforo(f.cum):'<span class="sem s-mal">Sin plan</span>')+'</td><td class="r">'+(f.conv==null?'—':f.conv+' %')+'</td><td class="r">'+(f.e.imp?dinero(f.e.imp):'—')+'</td>'+

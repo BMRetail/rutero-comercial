@@ -60,6 +60,26 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 .menu-btn:disabled{opacity:.45;cursor:not-allowed}
 
 .submit-bar{padding:14px 16px 22px;display:flex;flex-direction:column;gap:8px;background:#fff}
+/* Fase 2 (31/10/2026): botones de opción grandes, guardar fijo, hoja inferior y tareas */
+#screen-completar .submit-bar{position:sticky;bottom:0;z-index:20;box-shadow:0 -3px 10px rgba(0,0,0,.07);padding:10px 16px 14px}
+.cv-chips{display:flex;gap:8px;flex-wrap:wrap}
+.cv-chips button{min-height:44px;border:1.5px solid var(--bm-blue-mid);background:#fff;color:var(--bm-blue);border-radius:22px;padding:0 14px;font-weight:700;font-size:14px;cursor:pointer;width:auto}
+.cv-chips button.on{background:var(--bm-blue);color:#fff;border-color:var(--bm-blue)}
+.cv-chips.grande button{flex:1 1 45%;border-radius:12px;min-height:52px}
+.cv-resumen-obra{background:var(--bm-blue-light);border-radius:10px;padding:10px 12px;font-size:14px;display:flex;align-items:center;gap:8px}
+.cv-resumen-obra span{flex:1}.cv-resumen-obra a{color:var(--bm-blue-mid);font-weight:700;cursor:pointer}
+.acc-visita{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.acc-visita a,.acc-visita button{display:inline-flex;align-items:center;gap:4px;min-height:40px;width:auto;padding:0 11px;border:1.5px solid var(--bm-blue-mid);border-radius:20px;background:#fff;font-size:13px;font-weight:700;color:var(--bm-blue);text-decoration:none;cursor:pointer}
+.acc-visita .cerrar{background:var(--bm-green);border-color:var(--bm-green);color:#fff}
+.hoja-velo{display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:300}
+.hoja-velo.on{display:block}
+.hoja{display:none;position:fixed;left:0;right:0;bottom:0;max-width:480px;margin:0 auto;background:#fff;border-radius:16px 16px 0 0;box-shadow:0 -6px 20px rgba(0,0,0,.2);padding:16px;z-index:301;max-height:80vh;overflow-y:auto}
+.hoja.on{display:block}
+.tarea-fila{display:flex;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid var(--bm-blue-light)}
+.tarea-fila .ck{min-width:44px;min-height:44px;width:auto;border:2px solid var(--bm-blue-mid);border-radius:10px;background:#fff;font-size:20px;color:var(--bm-green);cursor:pointer}
+.tarea-fila .q{flex:1;min-width:0}.tarea-fila .q b{display:block;font-size:14.5px;color:#1a1a2e}.tarea-fila small{color:var(--bm-gris);font-size:12.5px}
+.tarea-fila .ap{min-height:40px;width:auto;font-size:12.5px;border:1px solid #c9d2e3;background:#fff;border-radius:18px;padding:0 10px;cursor:pointer;color:var(--bm-gris)}
+.tareas-grupo{font-size:12.5px;font-weight:700;margin:12px 0 0}
 .submit-btn{width:100%;padding:14px;border:none;border-radius:10px;background:var(--bm-green);color:#fff;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px}
 .submit-btn:disabled{opacity:.6}
 .clear-btn,.secondary-btn{width:100%;padding:10px;border:1.5px solid #ccc;border-radius:10px;background:#fff;color:#666;font-size:13px;cursor:pointer}
@@ -282,6 +302,12 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
         <span style="font-size:12px;font-weight:600;color:var(--bm-blue-mid);cursor:pointer" onclick="cerrarSesion()">Cerrar sesión</span>
       </div>
     </div>
+    <div class="section" id="inicioAvisoTareasSection" style="display:none">
+      <div onclick="irA('tareas')" style="cursor:pointer;background:var(--bm-red-light);border:1px solid #f3b9c1;border-radius:10px;padding:12px 14px;display:flex;justify-content:space-between;align-items:center;gap:10px">
+        <span id="inicioAvisoTareasTexto" style="font-size:14px;font-weight:700;color:var(--bm-red)"></span>
+        <span style="font-size:13px;font-weight:700;color:var(--bm-red)">Ver ›</span>
+      </div>
+    </div>
     <div class="section" id="inicioAvisoPendientesSection" style="display:none">
       <div style="background:var(--bm-amber-light);border-radius:10px;padding:12px 14px;display:flex;justify-content:space-between;align-items:center;gap:10px">
         <span id="inicioAvisoPendientesTexto" style="font-size:13px;font-weight:600;color:var(--bm-amber)"></span>
@@ -433,103 +459,154 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
     <div class="section" id="completarContexto" style="background:var(--bm-blue-pale)"></div>
     <form id="completarForm" onsubmit="return false">
       <div class="section">
-        <div class="section-title">Resultado de la visita</div>
-        <div class="field"><label>Fecha realizada</label><input type="date" id="cv_fecha_realizada"></div>
-        <div class="field">
-          <label class="required">Estado de la visita</label>
-          <select id="cv_estado" onchange="manejarCambioEstado(this.value)">
-            <option value="">— Seleccionar —</option>
-            <option value="Realizada">Realizada</option>
-            <option value="Pospuesta">Pospuesta</option>
-            <option value="Cancelada">Cancelada</option>
-            <option value="Imprevista">Imprevista</option>
-          </select>
+        <div class="section-title">¿Cómo ha ido? <span style="color:var(--bm-red)">*</span></div>
+        <input type="hidden" id="cv_estado"><input type="hidden" id="cv_resultado">
+        <div class="cv-chips grande" id="cv_res_chips">
+          <button type="button" data-r="Pedido cerrado" onclick="elegirResultadoCv(this)">🛒 Pedido</button>
+          <button type="button" data-r="Presupuesto" onclick="elegirResultadoCv(this)">📄 Presupuesto</button>
+          <button type="button" data-r="Sin pedido" onclick="elegirResultadoCv(this)">⏸ Sin pedido</button>
+          <button type="button" data-r="No estaba" onclick="elegirResultadoCv(this)">🚪 No estaba</button>
+          <button type="button" data-r="Otros" onclick="elegirResultadoCv(this)" style="flex:1 1 100%">✏️ Otro</button>
         </div>
-        <div class="field" id="cv_reprogramar_prompt" style="display:none;background:var(--bm-amber-light);border-radius:8px;padding:12px">
-          <div style="font-size:13px;color:var(--bm-amber);font-weight:600;margin-bottom:8px">¿Quieres planificar cuándo retomar esta visita?</div>
-          <div class="row-2">
-            <button type="button" class="secondary-btn" onclick="irAReprogramar()">📅 Sí, planificar</button>
-            <button type="button" class="secondary-btn" onclick="irANoReprogramar()">No, por ahora no</button>
-          </div>
+        <div class="field" id="cv_resultado_otro_wrap" style="display:none;margin-top:10px">
+          <label>¿Cuál?</label>
+          <input type="text" id="cv_resultado_otro" placeholder="Escribe el resultado...">
         </div>
-        <div class="field">
-          <label>Tipo de visita</label>
-          <select id="cv_tipo">
-            <option value="">— Seleccionar —</option>
-            <option value="En obra">En obra</option>
-            <option value="En tienda">En tienda</option>
-            <option value="Telefónica">Telefónica</option>
-            <option value="Videollamada">Videollamada</option>
-          </select>
-        </div>
-        <div class="field"><label>¿Obra activa?</label>
-          <div class="radio-group">
-            <label class="radio-btn" for="cv_oa_si"><input type="radio" name="cv_obra_activa" id="cv_oa_si" value="Sí" onchange="manejarObraActiva('Sí')"><span>Sí</span></label>
-            <label class="radio-btn" for="cv_oa_no"><input type="radio" name="cv_obra_activa" id="cv_oa_no" value="No" onchange="manejarObraActiva('No')"><span>No</span></label>
-          </div>
-          <div id="cv_finalizar_obra_prompt" style="display:none;background:var(--bm-amber-light);border-radius:8px;padding:12px;margin-top:10px">
-            <div style="font-size:13px;font-weight:700;color:var(--bm-amber)">¿Desea dar por finalizada la obra «<span id="cv_finalizar_obra_nombre"></span>»?</div>
-            <div style="font-size:12px;color:#667;margin-top:4px">Una obra finalizada deja de proponerse al planificar nuevas visitas. Podrá reabrirla en cualquier momento desde la ficha del cliente.</div>
-            <div style="display:flex;gap:8px;margin-top:10px">
-              <button type="button" class="secondary-btn" style="border-color:var(--bm-blue-mid);color:var(--bm-blue);font-weight:700" onclick="elegirFinalizarObra(true)">Sí, finalizar obra</button>
-              <button type="button" class="secondary-btn" onclick="elegirFinalizarObra(false)">No, mantener abierta</button>
+        <div class="field" id="cv_importe_wrap" style="display:none;margin-top:10px"><label id="cv_importe_label">Importe aproximado (€)</label><input type="number" id="cv_importe" step="0.01" min="0" inputmode="decimal"></div>
+        <div class="hint" id="cv_noestaba_hint" style="display:none">Cuenta como visita realizada (te desplazaste). No cuenta en la conversión.</div>
+        <div id="cv_reprogramar_prompt" style="display:none"></div>
+      </div>
+      <div class="section">
+        <div class="section-title">Obra</div>
+        <div class="cv-resumen-obra"><span id="cv_obra_resumen">Sin datos de la obra</span><a onclick="document.getElementById('cv_obra_detalle').style.display=''; this.style.display='none'">Cambiar</a></div>
+        <div class="hint">Se rellena con lo de la última visita a esta obra: tócalo solo si ha cambiado.</div>
+        <div id="cv_obra_detalle" style="display:none;margin-top:10px">
+          <div class="field"><label>¿Obra activa?</label>
+            <div class="radio-group">
+              <label class="radio-btn" for="cv_oa_si"><input type="radio" name="cv_obra_activa" id="cv_oa_si" value="Sí" onchange="manejarObraActiva('Sí');pintarResumenObraCv()"><span>Sí</span></label>
+              <label class="radio-btn" for="cv_oa_no"><input type="radio" name="cv_obra_activa" id="cv_oa_no" value="No" onchange="manejarObraActiva('No');pintarResumenObraCv()"><span>No</span></label>
             </div>
-            <div id="cv_finalizar_obra_eleccion" class="hint" style="margin-top:6px"></div>
+            <div id="cv_finalizar_obra_prompt" style="display:none;background:var(--bm-amber-light);border-radius:8px;padding:12px;margin-top:10px">
+              <div style="font-size:13px;font-weight:700;color:var(--bm-amber)">¿Desea dar por finalizada la obra «<span id="cv_finalizar_obra_nombre"></span>»?</div>
+              <div style="font-size:12px;color:var(--bm-gris);margin-top:4px">Una obra finalizada deja de proponerse al planificar nuevas visitas. Podrá reabrirla en cualquier momento desde la ficha del cliente.</div>
+              <div style="display:flex;gap:8px;margin-top:10px">
+                <button type="button" class="secondary-btn" style="border-color:var(--bm-blue-mid);color:var(--bm-blue);font-weight:700" onclick="elegirFinalizarObra(true)">Sí, finalizar obra</button>
+                <button type="button" class="secondary-btn" onclick="elegirFinalizarObra(false)">No, mantener abierta</button>
+              </div>
+              <div id="cv_finalizar_obra_eleccion" class="hint" style="margin-top:6px"></div>
+            </div>
+          </div>
+          <div class="field">
+            <label>Fase de la obra</label>
+            <select id="cv_fase" onchange="pintarResumenObraCv()">
+              <option value="">— Seleccionar —</option>
+              <option value="Inicio/Derribo">Inicio/Derribo</option>
+              <option value="Estructura">Estructura</option>
+              <option value="Instalaciones">Instalaciones</option>
+              <option value="Acabado">Acabado</option>
+              <option value="Cierre">Cierre</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Volumen de obra</label>
+            <select id="cv_volumen" onchange="pintarResumenObraCv()">
+              <option value="">— Seleccionar —</option>
+              <option value="Pequeña (menos de 15.000 €)">Pequeña (menos de 15.000 €)</option>
+              <option value="Mediana (15.000-50.000 €)">Mediana (15.000-50.000 €)</option>
+              <option value="Grande (más de 50.000 €)">Grande (más de 50.000 €)</option>
+            </select>
           </div>
         </div>
-        <div class="field">
-          <label>Volumen de obra</label>
-          <select id="cv_volumen">
-            <option value="">— Seleccionar —</option>
-            <option value="Pequeña (menos de 15.000 €)">Pequeña (menos de 15.000 €)</option>
-            <option value="Mediana (15.000-50.000 €)">Mediana (15.000-50.000 €)</option>
-            <option value="Grande (más de 50.000 €)">Grande (más de 50.000 €)</option>
-          </select>
-        </div>
-        <div class="field">
-          <label>Fase de la obra</label>
-          <select id="cv_fase">
-            <option value="">— Seleccionar —</option>
-            <option value="Inicio/Derribo">Inicio/Derribo</option>
-            <option value="Estructura">Estructura</option>
-            <option value="Instalaciones">Instalaciones</option>
-            <option value="Acabado">Acabado</option>
-            <option value="Cierre">Cierre</option>
-          </select>
-        </div>
-        <div class="field">
-          <label>Resultado de la visita</label>
-          <select id="cv_resultado" onchange="document.getElementById('cv_resultado_otro_wrap').style.display = this.value==='Otros' ? '' : 'none'">
-            <option value="">— Seleccionar —</option>
-            <option value="Pedido cerrado">Pedido cerrado</option>
-            <option value="Presupuesto">Presupuesto</option>
-            <option value="Sin pedido">Sin pedido</option>
-            <option value="Otros">Otro</option>
-          </select>
-        </div>
-        <div class="field" id="cv_resultado_otro_wrap" style="display:none">
-          <label>Especifica el resultado</label>
-          <input type="text" id="cv_resultado_otro" placeholder="Describe el resultado...">
-        </div>
-        <div class="field"><label>Importe pedido (€)</label><input type="number" id="cv_importe" step="0.01" min="0"></div>
-        <div class="field"><label>Necesidad detectada</label><textarea id="cv_necesidad" placeholder="..."></textarea></div>
+      </div>
+      <div class="section">
+        <div class="section-title">Notas de la visita</div>
+        <div class="field"><textarea id="cv_comentarios" placeholder="Qué habéis hablado, qué necesita… (opcional)"></textarea></div>
+        <input type="hidden" id="cv_necesidad">
       </div>
       <div class="section">
         <div class="section-title">Próxima acción</div>
-        <div class="field"><label>Próxima acción</label><input type="text" id="cv_proxima_accion" placeholder="Qué toca hacer después..."></div>
-        <div class="field"><label>Fecha próxima acción</label><input type="date" id="cv_fecha_proxima" oninput="mostrarFranjasProxima(this.value)"></div>
-        <div id="cv_franjas_proxima_container"></div>
-        <div class="hint">Si rellenas la fecha de próxima acción, se creará automáticamente una nueva visita planificada para ese día — elige una franja libre para dejarla ya con hora, o déjalo sin franja si aún no lo sabes.</div>
+        <input type="hidden" id="cv_proxima_accion">
+        <div class="cv-chips" id="cv_prox_chips">
+          <button type="button" data-a="Visitar" onclick="elegirProximaCv(this)">🚗 Visitar</button>
+          <button type="button" data-a="Llamar" onclick="elegirProximaCv(this)">📞 Llamar</button>
+          <button type="button" data-a="Seguir presupuesto" onclick="elegirProximaCv(this)">📄 Seguir presupuesto</button>
+          <button type="button" data-a="Reclamar cobro" onclick="elegirProximaCv(this)">💶 Cobro</button>
+          <button type="button" data-a="" class="on" onclick="elegirProximaCv(this)">Nada</button>
+        </div>
+        <div id="cv_prox_cuando" style="display:none;margin-top:10px">
+          <div class="cv-chips" id="cv_prox_rapidas">
+            <button type="button" onclick="fechaRapidaCv(1,this)">Mañana</button>
+            <button type="button" onclick="fechaRapidaCv(7,this)">En 1 semana</button>
+            <button type="button" onclick="fechaRapidaCv(15,this)">En 15 días</button>
+          </div>
+          <div class="field" style="margin-top:8px"><label>Fecha</label><input type="date" id="cv_fecha_proxima" oninput="cambioFechaProximaCv(this.value)"></div>
+          <div id="cv_franjas_proxima_container"></div>
+          <div class="hint" id="cv_prox_hint"></div>
+        </div>
       </div>
       <div class="section">
-        <div class="section-title">Comentarios</div>
-        <div class="field"><textarea id="cv_comentarios" placeholder="Comentarios..."></textarea></div>
+        <details id="cv_mas_datos"><summary style="cursor:pointer;color:var(--bm-blue-mid);font-weight:700;font-size:14px;padding:6px 0">Más datos (opcional)</summary>
+          <div class="field" style="margin-top:8px">
+            <label>Tipo de visita</label>
+            <select id="cv_tipo">
+              <option value="">— Seleccionar —</option>
+              <option value="En obra">En obra</option>
+              <option value="En tienda">En tienda</option>
+              <option value="Telefónica">Telefónica</option>
+              <option value="Videollamada">Videollamada</option>
+            </select>
+          </div>
+          <div class="field"><label>Fecha de la visita</label><input type="date" id="cv_fecha_realizada"></div>
+        </details>
       </div>
     </form>
     <div class="submit-bar">
-      <button class="submit-btn" id="btnGuardarCompletar" onclick="guardarCompletarVisita()">Guardar y cerrar visita</button>
+      <button class="submit-btn" id="btnGuardarCompletar" onclick="guardarCompletarVisita()">Guardar visita</button>
     </div>
   </div>
+
+  <!-- ===================== MIS TAREAS (fase 2, 31/10/2026) ===================== -->
+  <div class="screen" id="screen-tareas">
+    <div class="section">
+      <div id="tareasLista">Cargando...</div>
+      <div class="hint" style="margin-top:10px">Las tareas salen de la «próxima acción» al cerrar una visita o registrar una llamada. ✔ la da por hecha y «Aplazar» la pasa a mañana.</div>
+    </div>
+  </div>
+
+  <!-- ===================== REGISTRAR LLAMADA / WHATSAPP / CORREO (fase 2) ===================== -->
+  <div class="screen" id="screen-contacto">
+    <div class="section" id="contactoContexto" style="background:var(--bm-blue-pale)"></div>
+    <div class="section">
+      <div class="section-title">Tipo</div>
+      <div class="cv-chips" id="ct_tipo_chips">
+        <button type="button" class="on" data-t="Telefónica">📞 Llamada</button>
+        <button type="button" data-t="WhatsApp">💬 WhatsApp</button>
+        <button type="button" data-t="Correo">✉️ Correo</button>
+      </div>
+      <div class="section-title" style="margin-top:14px">¿Cómo ha ido? <span style="color:var(--bm-red)">*</span></div>
+      <div class="cv-chips grande" id="ct_res_chips">
+        <button type="button" data-r="Pedido cerrado">🛒 Pedido</button>
+        <button type="button" data-r="Presupuesto">📄 Presupuesto</button>
+        <button type="button" data-r="Sin pedido">⏸ Sin pedido</button>
+        <button type="button" data-r="No contesta">📵 No contesta</button>
+      </div>
+      <div class="field" style="margin-top:12px"><label>Nota (opcional)</label><textarea id="ct_nota" placeholder="Qué habéis hablado…"></textarea></div>
+      <div class="section-title" style="margin-top:6px">Próxima acción</div>
+      <div class="cv-chips" id="ct_prox_chips">
+        <button type="button" data-a="Visitar">🚗 Visitar</button>
+        <button type="button" data-a="Llamar">📞 Llamar</button>
+        <button type="button" data-a="Seguir presupuesto">📄 Seguir presupuesto</button>
+        <button type="button" data-a="Reclamar cobro">💶 Cobro</button>
+        <button type="button" data-a="" class="on">Nada</button>
+      </div>
+      <div class="field" id="ct_fecha_wrap" style="display:none;margin-top:10px"><label>¿Cuándo?</label><input type="date" id="ct_fecha"></div>
+      <div class="hint" id="ct_hint"></div>
+    </div>
+    <div class="submit-bar"><button class="submit-btn" id="btnGuardarContacto" onclick="guardarContacto()">Guardar</button></div>
+  </div>
+
+  <div class="hoja-velo" id="hojaVelo" onclick="cerrarHoja()"></div>
+  <div class="hoja" id="hoja"></div>
 
   <!-- ===================== HISTORIAL CLIENTE ===================== -->
   <div class="screen" id="screen-historial">
@@ -581,6 +658,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
       <div id="fichaDatos"></div>
       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px">
         <div id="fichaTendencia"></div>
+        <button type="button" id="btnContactoFicha" onclick="registrarContactoDesdeFicha()" style="width:auto;padding:10px 14px;font-size:13px;font-weight:700;border:1.5px solid var(--bm-blue-mid);border-radius:18px;background:#fff;color:var(--bm-blue);cursor:pointer">📞 Registrar llamada / WhatsApp</button>
         <button type="button" id="btnPlanFicha" onclick="planificarDesdeFicha()" style="width:auto;padding:10px 14px;font-size:13px;font-weight:700;border:1.5px solid var(--bm-blue);border-radius:18px;background:var(--bm-blue);color:#fff;cursor:pointer">📅 Planificar visita</button>
         <button type="button" id="btnVerVentas" onclick="alternarVentasFicha()" style="width:auto;padding:10px 14px;font-size:13px;font-weight:700;border:1.5px solid var(--bm-blue-mid);border-radius:14px;background:#fff;color:var(--bm-blue);cursor:pointer">📊 Ver ventas</button>
         <button type="button" id="btnVista360" onclick="alternarVista360()" style="display:none;width:auto;padding:10px 14px;font-size:13px;font-weight:700;border:1.5px solid var(--bm-blue-mid);border-radius:14px;background:#fff;color:var(--bm-blue);cursor:pointer">🔎 Vista 360</button>
@@ -858,6 +936,8 @@ const TITULOS = {
   ficha: ['Ficha del cliente','Datos, contactos y notas'],
   clientes: ['Clientes','Busca cualquier cliente'],
   cartera: ['Mi cartera','Tus clientes, por prioridad'],
+  tareas: ['Mis tareas','Lo que tienes pendiente'],
+  contacto: ['Registrar contacto','Llamada, WhatsApp o correo'],
   supervision: ['Supervisión del equipo','¿Quién ha planificado?'],
   pendientes: ['Visitas pendientes','Cancela o reprograma'],
   reprogramar: ['Reprogramar visita','Elige nueva fecha y franja'],
@@ -892,6 +972,7 @@ window.irA = function irA(pantalla, guardarHistorial=true){
   if(pantalla==='agenda') iniciarAgenda();
   if(pantalla==='supervision') iniciarSupervision();
   if(pantalla==='cartera') iniciarCartera();
+  if(pantalla==='tareas') cargarTareas();
   if(pantalla==='usuarios') cargarUsuarios();
   if(pantalla==='clientes'){
     document.getElementById('cb_cliente').value='';
@@ -1047,6 +1128,7 @@ function mostrarInicioConectado(){
   }
   irA('inicio', false);
   comprobarVisitasPendientes();
+  comprobarTareas();
 }
 window.toggleHerramientasComercial=function toggleHerramientasComercial(){
   if(!comercialActual || !comercialActual.esSupervisor) return;
@@ -1194,10 +1276,10 @@ window.confirmarReprogramacion=async function confirmarReprogramacion(){
       comentarios:'',
       creadoEn:serverTimestamp(), actualizadoEn:serverTimestamp()
     }));
-    showStatus('Visita reprogramada correctamente.', 'ok');
+    showStatus('Visita pospuesta correctamente.', 'ok');
     visitaAReprogramar=null;
-    irA('pendientes', false);
-    cargarPendientes();
+    if(reprogramarOrigen==='rutero'){ reprogramarOrigen=''; irA('rutero', false); }
+    else { irA('pendientes', false); cargarPendientes(); }
     comprobarVisitasPendientes();
   }catch(err){
     console.error(err);
@@ -1654,11 +1736,27 @@ async function cargarRutero(){
     grupos[fecha].forEach(function(v){
       const card=document.createElement('div');
       card.className='visita-card';
+      const urlM=urlMapsParaVisita(v);
       card.innerHTML=
-        '<div class="top"><span class="cliente">'+(v.clienteRazonSocial||'')+'</span><span class="badge '+v.estadoVisita+'">'+v.estadoVisita+'</span></div>'+
-        '<div class="fecha">'+(v.franjaHoraria||'Sin franja')+'</div>'+
-        '<div class="obra">'+(v.nombreObra||'')+'</div>';
+        '<div class="top"><span class="cliente">'+escHtml(v.clienteRazonSocial||'')+'</span><span class="badge '+v.estadoVisita+'">'+v.estadoVisita+'</span></div>'+
+        '<div class="fecha">'+escHtml(v.franjaHoraria||'Sin franja')+'</div>'+
+        '<div class="obra">'+escHtml(v.nombreObra||'')+'</div>'+
+        '<div class="acc-visita">'+
+          (v.clientePartner?'<button type="button" class="a-tel">📞 Llamar</button><button type="button" class="a-wa">💬 WhatsApp</button>':'')+
+          (urlM?'<a href="'+urlM+'" target="_blank" rel="noopener" class="a-maps">📍 Maps</a>':'')+
+          (v.clientePartner?'<button type="button" class="a-ficha">📇 Ficha</button>':'')+
+          '<button type="button" class="a-pos">⏭ Posponer</button><button type="button" class="a-can">❌ Cancelar</button>'+
+          '<button type="button" class="a-cerrar cerrar">✔ Cerrar visita</button>'+
+        '</div>';
       card.onclick=function(){ visitaActual=v; irA('completar'); };
+      const pare=function(sel, fn){ const b=card.querySelector(sel); if(b) b.onclick=function(e){ e.stopPropagation(); fn(); }; };
+      pare('.a-tel', function(){ elegirTelefono(v,'tel'); });
+      pare('.a-wa', function(){ elegirTelefono(v,'wa'); });
+      pare('.a-ficha', function(){ visitaActual=v; abrirFichaDesdeVisita(); });
+      pare('.a-pos', function(){ reprogramarOrigen='rutero'; abrirReprogramar(v); });
+      pare('.a-can', function(){ abrirCancelarVisita(v); });
+      pare('.a-cerrar', function(){ visitaActual=v; irA('completar'); });
+      const am=card.querySelector('.a-maps'); if(am) am.onclick=function(e){ e.stopPropagation(); };
       body.appendChild(card);
     });
     cont.appendChild(body);
@@ -2067,6 +2165,7 @@ async function cargarSupervision(){
     else if(v.estadoVisita==='Pospuesta') e.pospuestas++;
     else if(v.estadoVisita==='Cancelada') e.canceladas++;
     if(v.resultadoVisita==='Pedido cerrado'){ e.pedidosCerrados++; e.importeGenerado += Number(v.importePedido)||0; }
+    if(v.estadoVisita==='Realizada' && v.resultadoVisita==='No estaba') e.noEstaba=(e.noEstaba||0)+1;  // fase 2: no cuenta en la conversión
   });
 
   pintarSelectorCategoria(Array.from(categorias).sort());
@@ -2077,13 +2176,14 @@ async function cargarSupervision(){
 function pintarResumenEquipo(lista, label){
   const cont=document.getElementById('supervisionResumen');
   if(!cont) return;
-  let planificadas=0, realizadas=0, pospuestas=0, canceladas=0, pedidosCerrados=0, importeGenerado=0;
+  let planificadas=0, realizadas=0, pospuestas=0, canceladas=0, pedidosCerrados=0, importeGenerado=0, noEstaba=0;
   lista.forEach(function(e){
     planificadas+=e.planificadas; realizadas+=e.realizadas; pospuestas+=e.pospuestas; canceladas+=e.canceladas;
-    pedidosCerrados+=e.pedidosCerrados; importeGenerado+=e.importeGenerado;
+    pedidosCerrados+=e.pedidosCerrados; importeGenerado+=e.importeGenerado; noEstaba+=(e.noEstaba||0);
   });
   const total=planificadas+realizadas+pospuestas+canceladas;
-  const tasaConversion=realizadas ? Math.round(pedidosCerrados/realizadas*100) : 0;
+  const conContacto=realizadas-noEstaba;   // «No estaba» no cuenta en la conversión
+  const tasaConversion=conContacto>0 ? Math.round(pedidosCerrados/conContacto*100) : 0;
   const cumplimiento=total ? Math.round(realizadas/total*100) : 0;
   resumenEquipoActual = total ? {cumplimiento, tasaConversion, categoria: supervisionCategoria} : null;
   if(!total){ cont.innerHTML=''; return; }
@@ -2163,9 +2263,10 @@ async function cargarDetalleComercial(){
   }
 
   const visitas=[]; visitasSnap.forEach(function(d){ visitas.push(Object.assign({id:d.id}, d.data())); });
-  let pendientes=0, realizadas=0, pospuestas=0, canceladas=0, pedidosCerrados=0, importeGenerado=0;
+  let pendientes=0, realizadas=0, pospuestas=0, canceladas=0, pedidosCerrados=0, importeGenerado=0, noEstaba=0;
   const clientesTocados=new Set();
   visitas.forEach(function(v){
+    if(v.estadoVisita==='Realizada' && v.resultadoVisita==='No estaba') noEstaba++;
     if(v.estadoVisita==='Planificada') pendientes++;
     else if(v.estadoVisita==='Realizada') realizadas++;
     else if(v.estadoVisita==='Pospuesta') pospuestas++;
@@ -2178,7 +2279,7 @@ async function cargarDetalleComercial(){
   const tocados=clientesTocados.size;
   const pct=cartera ? Math.round(tocados/cartera*100) : 0;
   const total=pendientes+realizadas+otras;
-  const tasaConversion=realizadas ? Math.round(pedidosCerrados/realizadas*100) : 0;
+  const tasaConversion=(realizadas-noEstaba)>0 ? Math.round(pedidosCerrados/(realizadas-noEstaba)*100) : 0;
   const cumplimiento=total ? Math.round(realizadas/total*100) : 0;
 
   const resumenEquipoEl=document.getElementById('supervisionResumen');
@@ -2297,6 +2398,16 @@ function limpiarCompletar(){
   document.querySelectorAll('input[name=cv_obra_activa]').forEach(function(r){ r.checked=false; });
   document.getElementById('cv_estado').value='';
   document.getElementById('cv_resultado_otro_wrap').style.display='none';
+  // fase 2: botones de resultado y próxima acción
+  document.querySelectorAll('#cv_res_chips button').forEach(function(b){ b.classList.remove('on'); });
+  document.querySelectorAll('#cv_prox_chips button').forEach(function(b){ b.classList.toggle('on', b.dataset.a===''); });
+  document.querySelectorAll('#cv_prox_rapidas button').forEach(function(b){ b.classList.remove('on'); });
+  document.getElementById('cv_importe_wrap').style.display='none';
+  document.getElementById('cv_noestaba_hint').style.display='none';
+  document.getElementById('cv_prox_cuando').style.display='none';
+  document.getElementById('cv_obra_detalle').style.display='none';
+  const cambiar=document.querySelector('.cv-resumen-obra a'); if(cambiar) cambiar.style.display='';
+  document.getElementById('cv_mas_datos').open=false;
   document.getElementById('cv_reprogramar_prompt').style.display='none';
   document.getElementById('cv_franjas_proxima_container').innerHTML='';
   franjaProximaSeleccionada='';
@@ -2411,16 +2522,25 @@ window.abrirCompletar = function abrirCompletar(){
     (urlMaps ? '<a href="'+urlMaps+'" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;min-height:40px;padding:0 12px;border:1.5px solid var(--bm-blue-mid);border-radius:18px;font-size:13px;font-weight:700;color:var(--bm-blue);text-decoration:none">📍 Abrir en Maps</a>' : '')+
     (v.clientePartner ? '<button type="button" onclick="abrirFichaDesdeVisita()" style="width:auto;min-height:40px;padding:0 12px;border:1.5px solid var(--bm-blue-mid);border-radius:18px;background:#fff;font-size:13px;font-weight:700;color:var(--bm-blue);cursor:pointer">📇 Ficha del cliente</button>' : '')+
     '</div>';
-  document.getElementById('cv_estado').value = v.estadoVisita==='Imprevista' ? '' : v.estadoVisita;
+  // el estado sale del botón «¿Cómo ha ido?» (Realizada); solo se respeta si ya estaba cerrada (corrección)
+  document.getElementById('cv_estado').value = v.estadoVisita==='Realizada' ? 'Realizada' : '';
   document.getElementById('cv_fecha_realizada').value = v.fechaRealizada || hoyLocal();
+  document.getElementById('cv_tipo').value = v.tipoVisita || 'En obra';
+  if(v.estadoVisita==='Realizada' && v.resultadoVisita){
+    const conocido=['Pedido cerrado','Presupuesto','Sin pedido','No estaba'].includes(v.resultadoVisita);
+    const b=document.querySelector('#cv_res_chips button[data-r="'+(conocido?v.resultadoVisita:'Otros')+'"]');
+    if(b){ elegirResultadoCv(b, true); if(!conocido) document.getElementById('cv_resultado_otro').value=v.resultadoVisita; }
+    if(v.importePedido!=null) document.getElementById('cv_importe').value=v.importePedido;
+    if(v.comentarios) document.getElementById('cv_comentarios').value=v.comentarios;
+  }
   if(['Realizada','Pospuesta','Cancelada'].includes(v.estadoVisita)){
     showStatus('⚠️ Esta visita ya está marcada como '+v.estadoVisita+'. Puedes corregirla si hace falta.', 'warn');
   }
-  if(v.volumenObra){
-    document.getElementById('cv_volumen').value=v.volumenObra;
-  } else {
-    precargarVolumenObra(v);
-  }
+  if(v.volumenObra) document.getElementById('cv_volumen').value=v.volumenObra;
+  if(v.faseObra) document.getElementById('cv_fase').value=v.faseObra;
+  if(v.obraActiva){ const r=document.querySelector('input[name=cv_obra_activa][value="'+v.obraActiva+'"]'); if(r) r.checked=true; }
+  pintarResumenObraCv();
+  precargarVolumenObra(v);
 }
 
 async function precargarVolumenObra(v){
@@ -2428,17 +2548,16 @@ async function precargarVolumenObra(v){
   try{
     const q=query(collection(db,'visitas'), where('clientePartner','==',v.clientePartner), where('nombreObra','==',v.nombreObra));
     const snap=await getDocs(q);
-    let encontrado='';
-    snap.forEach(function(d){
-      if(encontrado) return;
-      if(d.id===v.id) return;
-      const datos=d.data();
-      if(datos.volumenObra) encontrado=datos.volumenObra;
-    });
-    if(encontrado && !f('cv_volumen')){
-      document.getElementById('cv_volumen').value=encontrado;
-      document.getElementById('cv_volumen').closest('.field').insertAdjacentHTML('beforeend','<div class="hint" id="cv_volumen_hint">Precargado de una visita anterior a esta misma obra.</div>');
-    }
+    // la visita anterior más reciente a esta obra (fase 2: también fase y obra activa)
+    const previas=[];
+    snap.forEach(function(d){ if(d.id!==v.id) previas.push(d.data()); });
+    previas.sort(function(a,b){ return (b.fechaRealizada||b.fechaVisita||'').localeCompare(a.fechaRealizada||a.fechaVisita||''); });
+    const buscar=function(campo){ const x=previas.find(function(p){ return p[campo]; }); return x?x[campo]:''; };
+    const vol=buscar('volumenObra'), fase=buscar('faseObra'), activa=buscar('obraActiva');
+    if(vol && !f('cv_volumen')) document.getElementById('cv_volumen').value=vol;
+    if(fase && !f('cv_fase')) document.getElementById('cv_fase').value=fase;
+    if(activa && !getRadio('cv_obra_activa')){ const r=document.querySelector('input[name=cv_obra_activa][value="'+activa+'"]'); if(r) r.checked=true; }
+    pintarResumenObraCv();
   }catch(err){
     console.error(err);
   }
@@ -2446,7 +2565,10 @@ async function precargarVolumenObra(v){
 
 window.guardarCompletarVisita = async function guardarCompletarVisita(){
   const estado=f('cv_estado');
-  if(!estado){ showStatus('Elige el estado de la visita antes de guardar.', 'warn'); return; }
+  if(!estado || !f('cv_resultado')){ showStatus('Elige «¿Cómo ha ido?» antes de guardar.', 'warn'); return; }
+  if(f('cv_resultado')==='Otros' && !f('cv_resultado_otro')){ showStatus('Escribe cuál ha sido el resultado.', 'warn'); return; }
+  const accionProx=f('cv_proxima_accion');
+  if(accionProx && !f('cv_fecha_proxima')){ showStatus('Elige cuándo: «'+accionProx+'».', 'warn'); return; }
   const btn=document.getElementById('btnGuardarCompletar');
   btn.disabled=true; btn.textContent='Guardando...';
   try{
@@ -2460,15 +2582,19 @@ window.guardarCompletarVisita = async function guardarCompletarVisita(){
       faseObra:f('cv_fase'),
       volumenObra:f('cv_volumen'),
       necesidadDetectada:f('cv_necesidad'),
-      proximaAccion:f('cv_proxima_accion'),
-      fechaProximaAccion:f('cv_fecha_proxima')||null,
+      proximaAccion:accionProx,
+      fechaProximaAccion:accionProx?(f('cv_fecha_proxima')||null):null,
       comentarios:f('cv_comentarios'),
       actualizadoEn:serverTimestamp()
     };
     await conTimeout(updateDoc(doc(db,'visitas',visitaActual.id), cambios));
     const obraFinalizada = finalizarObraAlGuardar && getRadio('cv_obra_activa')==='No' && visitaActual.clientePartner && visitaActual.nombreObra;
     if(obraFinalizada) await guardarEstadoObra(visitaActual.clientePartner, visitaActual.nombreObra.trim(), true);
-    if(f('cv_fecha_proxima')){
+    if(accionProx && accionProx!=='Visitar' && f('cv_fecha_proxima')){
+      await crearTarea({clientePartner:visitaActual.clientePartner, clienteRazonSocial:visitaActual.clienteRazonSocial, nombreObra:visitaActual.nombreObra||'',
+        tipo:accionProx, fecha:f('cv_fecha_proxima'), origen:'visita', origenId:visitaActual.id});
+    }
+    if(accionProx==='Visitar' && f('cv_fecha_proxima')){
       await conTimeout(addDoc(collection(db,'visitas'), {
         comercialId:visitaActual.comercialId, comercialNombre:visitaActual.comercialNombre,
         clientePartner:visitaActual.clientePartner, clienteRazonSocial:visitaActual.clienteRazonSocial,
@@ -2492,9 +2618,231 @@ window.guardarCompletarVisita = async function guardarCompletarVisita(){
     console.error(err);
     showStatus('Error al guardar: '+err.message, 'err');
   }finally{
-    btn.disabled=false; btn.textContent='Guardar y cerrar visita';
+    btn.disabled=false; btn.textContent='Guardar visita';
   }
 }
+
+/* ====================== FASE 2 (31/10/2026): cierre rápido, tareas y contactos ====================== */
+let reprogramarOrigen='';
+function sumarDiasHoy(n){ const d=new Date(); d.setDate(d.getDate()+n); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+window.elegirResultadoCv=function elegirResultadoCv(b, sinSugerir){
+  document.querySelectorAll('#cv_res_chips button').forEach(function(x){ x.classList.remove('on'); });
+  b.classList.add('on');
+  const r=b.dataset.r;
+  document.getElementById('cv_resultado').value=r;
+  document.getElementById('cv_estado').value='Realizada';
+  document.getElementById('cv_resultado_otro_wrap').style.display=r==='Otros'?'':'none';
+  document.getElementById('cv_importe_wrap').style.display=(r==='Pedido cerrado'||r==='Presupuesto')?'':'none';
+  document.getElementById('cv_importe_label').textContent=r==='Presupuesto'?'Importe aproximado del presupuesto (€)':'Importe aproximado del pedido (€)';
+  document.getElementById('cv_noestaba_hint').style.display=r==='No estaba'?'':'none';
+  if(sinSugerir) return;
+  // sugerencias: presupuesto → seguirlo en 1 semana; no estaba → volver a visitar
+  if(r==='Presupuesto' && !f('cv_proxima_accion')){ elegirProximaCv(document.querySelector('#cv_prox_chips button[data-a="Seguir presupuesto"]')); fechaRapidaCv(7, document.querySelectorAll('#cv_prox_rapidas button')[1]); }
+  if(r==='No estaba' && !f('cv_proxima_accion')){ elegirProximaCv(document.querySelector('#cv_prox_chips button[data-a="Visitar"]')); }
+};
+window.pintarResumenObraCv=function pintarResumenObraCv(){
+  const partes=[];
+  const fase=f('cv_fase'), vol=f('cv_volumen'), act=getRadio('cv_obra_activa');
+  if(fase) partes.push(fase);
+  if(vol) partes.push(vol.split(' (')[0]);
+  if(act) partes.push(act==='Sí'?'activa':'no activa');
+  const el=document.getElementById('cv_obra_resumen'); if(!el) return;
+  el.textContent='🏗️ '+(partes.length?partes.join(' · '):'Sin datos de la obra');
+};
+window.elegirProximaCv=function elegirProximaCv(b){
+  if(!b) return;
+  document.querySelectorAll('#cv_prox_chips button').forEach(function(x){ x.classList.remove('on'); });
+  b.classList.add('on');
+  const a=b.dataset.a;
+  document.getElementById('cv_proxima_accion').value=a;
+  document.getElementById('cv_prox_cuando').style.display=a?'':'none';
+  if(!a){ document.getElementById('cv_fecha_proxima').value=''; document.getElementById('cv_franjas_proxima_container').innerHTML=''; franjaProximaSeleccionada=''; }
+  cambioFechaProximaCv(f('cv_fecha_proxima'));
+};
+window.fechaRapidaCv=function fechaRapidaCv(dias, b){
+  document.querySelectorAll('#cv_prox_rapidas button').forEach(function(x){ x.classList.remove('on'); });
+  if(b) b.classList.add('on');
+  document.getElementById('cv_fecha_proxima').value=sumarDiasHoy(dias);
+  cambioFechaProximaCv(f('cv_fecha_proxima'));
+};
+window.cambioFechaProximaCv=function cambioFechaProximaCv(fecha){
+  const a=f('cv_proxima_accion');
+  // solo «Visitar» ocupa la agenda: pide franja (solo las libres)
+  if(a==='Visitar') mostrarFranjasProxima(fecha);
+  else { document.getElementById('cv_franjas_proxima_container').innerHTML=''; franjaProximaSeleccionada=''; }
+  document.getElementById('cv_prox_hint').innerHTML = !a ? '' : (a==='Visitar'
+    ? 'Se crea una <b>visita planificada</b> en tu agenda (elige una franja libre).'
+    : 'Se crea una <b>tarea</b> «'+escHtml(a)+'» en «Mis tareas» (no ocupa la agenda).');
+};
+
+/* ---------- tareas ---------- */
+async function crearTarea(t){
+  return conTimeout(addDoc(collection(db,'tareas'), {
+    comercialId:comercialActual.id, comercialNombre:comercialActual.nombre||'',
+    clientePartner:t.clientePartner||'', clienteRazonSocial:t.clienteRazonSocial||'', nombreObra:t.nombreObra||'',
+    tipo:t.tipo, fecha:t.fecha, estado:'pendiente', origen:t.origen||'', origenId:t.origenId||'',
+    creadoEn:serverTimestamp(), actualizadoEn:serverTimestamp()
+  }));
+}
+let tareasCache=[];
+async function leerTareasPendientes(){
+  const snap=await getDocs(query(collection(db,'tareas'), where('comercialId','==',comercialActual.id), where('estado','==','pendiente')));
+  const l=[]; snap.forEach(function(d){ l.push(Object.assign({id:d.id}, d.data())); });
+  l.sort(function(a,b){ return (a.fecha||'').localeCompare(b.fecha||''); });
+  return l;
+}
+async function comprobarTareas(){
+  const sec=document.getElementById('inicioAvisoTareasSection');
+  if(!sec) return;
+  sec.style.display='none';
+  if(!comercialActual || !comercialActual.id || comercialActual.esSupervisor) return;
+  try{
+    const l=await leerTareasPendientes(), hoy=hoyLocal();
+    const venc=l.filter(function(t){ return t.fecha<hoy; }).length, hoyN=l.filter(function(t){ return t.fecha===hoy; }).length;
+    if(!venc && !hoyN) return;
+    document.getElementById('inicioAvisoTareasTexto').textContent='✅ Tienes '+(venc?venc+' tarea'+(venc>1?'s':'')+' vencida'+(venc>1?'s':'')+(hoyN?' y ':''):'')+(hoyN?hoyN+' para hoy':'');
+    sec.style.display='';
+  }catch(e){ console.error('tareas', e); }
+}
+const ICONO_TAREA={'Llamar':'📞','Seguir presupuesto':'📄','Reclamar cobro':'💶','Visitar':'🚗'};
+async function cargarTareas(){
+  if(!requireComercial()) return;
+  const cont=document.getElementById('tareasLista');
+  cont.textContent='Cargando...';
+  try{ tareasCache=await leerTareasPendientes(); }
+  catch(e){ console.error(e); cont.innerHTML='<div class="empty-state">No se pudieron cargar las tareas.</div>'; return; }
+  pintarTareas();
+}
+function pintarTareas(){
+  const cont=document.getElementById('tareasLista'), hoy=hoyLocal(), lim=sumarDiasHoy(7);
+  const grupos=[['Vencidas','var(--bm-red)',function(t){ return t.fecha<hoy; }],['Hoy','var(--bm-blue)',function(t){ return t.fecha===hoy; }],
+    ['Próximos 7 días','var(--bm-gris)',function(t){ return t.fecha>hoy && t.fecha<=lim; }],['Más adelante','var(--bm-gris)',function(t){ return t.fecha>lim; }]];
+  let h='';
+  grupos.forEach(function(g){
+    const ts=tareasCache.filter(g[2]); if(!ts.length) return;
+    h+='<div class="tareas-grupo" style="color:'+g[1]+'">'+g[0]+' ('+ts.length+')</div>'+ts.map(function(t){
+      return '<div class="tarea-fila"><button type="button" class="ck" onclick="tareaHecha(\''+t.id+'\')" title="Hecha">✔</button>'+
+        '<div class="q"><b>'+(ICONO_TAREA[t.tipo]||'•')+' '+escHtml(t.tipo)+'</b><small>'+escHtml(t.clienteRazonSocial||'')+(t.nombreObra?' · '+escHtml(t.nombreObra):'')+' · '+formatFechaCorta(t.fecha)+'</small></div>'+
+        '<button type="button" class="ap" onclick="tareaAplazar(\''+t.id+'\')">Aplazar</button></div>';
+    }).join('');
+  });
+  cont.innerHTML=h||'<div class="empty-state">No tienes tareas pendientes. 🎉</div>';
+}
+window.tareaHecha=async function tareaHecha(id){
+  const t=tareasCache.find(function(x){ return x.id===id; }); if(!t) return;
+  try{
+    await conTimeout(updateDoc(doc(db,'tareas',id), {estado:'hecha', hechaEn:serverTimestamp(), actualizadoEn:serverTimestamp()}));
+    tareasCache=tareasCache.filter(function(x){ return x.id!==id; }); pintarTareas();
+    // si era llamar o seguir un presupuesto, se ofrece registrar cómo fue
+    if(t.clientePartner && t.tipo!=='Visitar'){
+      abrirHoja('<div class="section-title">Tarea hecha</div><div style="font-size:14px;margin-bottom:12px">¿Quieres registrar cómo ha ido con <b>'+escHtml(t.clienteRazonSocial||'')+'</b>?</div>'+
+        '<button type="button" class="submit-btn" onclick="cerrarHoja();abrirContacto(\''+escHtml(t.clientePartner)+'\',\''+escHtml((t.clienteRazonSocial||'').replace(/'/g,''))+'\')">📞 Registrar llamada / WhatsApp</button>'+
+        '<button type="button" class="secondary-btn" style="margin-top:8px" onclick="cerrarHoja()">No, solo marcarla como hecha</button>');
+    } else showStatus('Tarea hecha.', 'ok');
+  }catch(e){ console.error(e); showStatus('No se pudo guardar: '+e.message, 'err'); }
+};
+window.tareaAplazar=async function tareaAplazar(id){
+  const nueva=sumarDiasHoy(1);
+  try{
+    await conTimeout(updateDoc(doc(db,'tareas',id), {fecha:nueva, actualizadoEn:serverTimestamp()}));
+    const t=tareasCache.find(function(x){ return x.id===id; }); if(t) t.fecha=nueva; pintarTareas();
+  }catch(e){ console.error(e); showStatus('No se pudo aplazar: '+e.message, 'err'); }
+};
+
+/* ---------- hoja inferior ---------- */
+window.abrirHoja=function abrirHoja(html){ document.getElementById('hoja').innerHTML=html; document.getElementById('hoja').classList.add('on'); document.getElementById('hojaVelo').classList.add('on'); };
+window.cerrarHoja=function cerrarHoja(){ document.getElementById('hoja').classList.remove('on'); document.getElementById('hojaVelo').classList.remove('on'); };
+
+/* ---------- llamar / WhatsApp desde la visita (teléfonos de los contactos de la ficha) ---------- */
+window.elegirTelefono=async function elegirTelefono(v, modo){
+  let contactos=[];
+  try{ const d=await getDoc(doc(db,'clientesInfo',v.clientePartner)); if(d.exists()) contactos=(d.data().contactos||[]).filter(function(c){ return c.telefono && !c.baja; }); }catch(e){ console.error(e); }
+  if(!contactos.length){
+    abrirHoja('<div class="section-title">'+(modo==='wa'?'WhatsApp':'Llamar')+'</div><div style="font-size:14px">Este cliente no tiene teléfonos en su ficha. Añádelo en la ficha del cliente (Contactos) y aparecerá aquí.</div><button type="button" class="secondary-btn" style="margin-top:12px" onclick="cerrarHoja()">Cerrar</button>');
+    return;
+  }
+  const enlace=function(t){ const n=String(t).replace(/[^0-9+]/g,''); return modo==='wa' ? 'https://wa.me/'+(n.startsWith('+')?n.slice(1):(n.length===9?'34'+n:n)) : 'tel:'+n; };
+  abrirHoja('<div class="section-title">'+(modo==='wa'?'💬 WhatsApp a…':'📞 Llamar a…')+'</div>'+contactos.map(function(c){
+    return '<a href="'+enlace(c.telefono)+'" target="_blank" rel="noopener" onclick="cerrarHoja()" style="display:flex;justify-content:space-between;align-items:center;min-height:48px;padding:0 12px;margin-bottom:8px;border:1.5px solid var(--bm-blue-mid);border-radius:10px;text-decoration:none;color:var(--bm-blue);font-weight:700">'+
+      escHtml(c.nombre||'')+(c.cargo?' <span style="font-weight:400;color:var(--bm-gris);font-size:12px">· '+escHtml(c.cargo)+'</span>':'')+'<span>'+escHtml(c.telefono)+'</span></a>';
+  }).join('')+'<button type="button" class="secondary-btn" onclick="cerrarHoja()">Cerrar</button>');
+};
+
+/* ---------- cancelar visita con motivo ---------- */
+let visitaACancelar=null;
+window.abrirCancelarVisita=function abrirCancelarVisita(v){
+  visitaACancelar=v;
+  const motivos=['El cliente la anula','Obra parada','Ya no es necesaria','Otro'];
+  abrirHoja('<div class="section-title">Cancelar visita</div><div style="font-size:14px;margin-bottom:10px">'+escHtml(v.clienteRazonSocial||'')+'</div>'+
+    '<div class="cv-chips" id="canc_motivos">'+motivos.map(function(m){ return '<button type="button" onclick="document.querySelectorAll(\'#canc_motivos button\').forEach(function(x){x.classList.remove(\'on\')});this.classList.add(\'on\')">'+m+'</button>'; }).join('')+'</div>'+
+    '<button type="button" class="submit-btn" style="margin-top:14px;background:var(--bm-red)" onclick="confirmarCancelarVisita()">Cancelar visita</button>'+
+    '<button type="button" class="secondary-btn" style="margin-top:8px" onclick="cerrarHoja()">Volver</button>'+
+    '<div class="hint" style="margin-top:8px">La visita queda guardada como «Cancelada», no se borra.</div>');
+};
+window.confirmarCancelarVisita=async function confirmarCancelarVisita(){
+  const m=document.querySelector('#canc_motivos button.on');
+  if(!m){ showStatus('Elige el motivo.', 'warn'); return; }
+  try{
+    await conTimeout(updateDoc(doc(db,'visitas',visitaACancelar.id), {estadoVisita:'Cancelada', motivoCancelacion:m.textContent, actualizadoEn:serverTimestamp()}));
+    cerrarHoja(); showStatus('Visita cancelada.', 'ok'); cargarRutero(); comprobarVisitasPendientes();
+  }catch(e){ console.error(e); showStatus('No se pudo cancelar: '+e.message, 'err'); }
+};
+
+/* ---------- registrar llamada / WhatsApp / correo ---------- */
+let contactoCliente=null;
+window.registrarContactoDesdeFicha=function registrarContactoDesdeFicha(){
+  if(!fichaPartnerActual) return;
+  abrirContacto(fichaPartnerActual, f('nv_cliente')||fichaPartnerActual);
+};
+window.abrirContacto=function abrirContacto(partner, razon){
+  contactoCliente={partner:partner, razonSocial:razon};
+  document.getElementById('contactoContexto').innerHTML='<strong>'+escHtml(razon||partner)+'</strong>';
+  ['ct_tipo_chips','ct_res_chips','ct_prox_chips'].forEach(function(id){
+    document.querySelectorAll('#'+id+' button').forEach(function(b,i){ b.classList.toggle('on', (id==='ct_tipo_chips'&&i===0)||(id==='ct_prox_chips'&&b.dataset.a==='')); });
+  });
+  document.getElementById('ct_nota').value=''; document.getElementById('ct_fecha').value='';
+  document.getElementById('ct_fecha_wrap').style.display='none'; document.getElementById('ct_hint').textContent='';
+  irA('contacto');
+};
+document.addEventListener('click', function(e){
+  const b=e.target.closest('#ct_tipo_chips button, #ct_res_chips button, #ct_prox_chips button'); if(!b) return;
+  b.parentNode.querySelectorAll('button').forEach(function(x){ x.classList.remove('on'); }); b.classList.add('on');
+  if(b.parentNode.id==='ct_res_chips' && b.dataset.r==='Presupuesto'){
+    const s=document.querySelector('#ct_prox_chips button[data-a="Seguir presupuesto"]'); s.click(); document.getElementById('ct_fecha').value=sumarDiasHoy(7);
+  }
+  if(b.parentNode.id==='ct_prox_chips'){
+    const a=b.dataset.a;
+    document.getElementById('ct_fecha_wrap').style.display=(a && a!=='Visitar')?'':'none';
+    if(a && a!=='Visitar' && !document.getElementById('ct_fecha').value) document.getElementById('ct_fecha').value=sumarDiasHoy(1);
+    document.getElementById('ct_hint').innerHTML=a==='Visitar'?'Al guardar se abre el Planificador con este cliente ya elegido.':(a?'Se crea una tarea «'+escHtml(a)+'».':'');
+  }
+});
+window.guardarContacto=async function guardarContacto(){
+  const res=document.querySelector('#ct_res_chips button.on');
+  if(!res){ showStatus('Elige «¿Cómo ha ido?».', 'warn'); return; }
+  if(!requireComercial()) return;
+  const tipo=document.querySelector('#ct_tipo_chips button.on').dataset.t;
+  const accion=(document.querySelector('#ct_prox_chips button.on')||{dataset:{a:''}}).dataset.a;
+  const hoy=hoyLocal();
+  const btn=document.getElementById('btnGuardarContacto'); btn.disabled=true; btn.textContent='Guardando...';
+  try{
+    const ref=await conTimeout(addDoc(collection(db,'visitas'), {
+      comercialId:comercialActual.id, comercialNombre:comercialActual.nombre||'',
+      clientePartner:contactoCliente.partner, clienteRazonSocial:contactoCliente.razonSocial||'',
+      nombreObra:'', fechaVisita:hoy, franjaHoraria:'', motivoVisita:'', prioridad:'',
+      direccionObra:'', ubicacionMaps:'', estadoVisita:'Realizada', fechaRealizada:hoy,
+      resultadoVisita:res.dataset.r, importePedido:null, tipoVisita:tipo, origen:'contacto',
+      proximaAccion:accion, fechaProximaAccion:(accion&&accion!=='Visitar')?(f('ct_fecha')||null):null,
+      obraActiva:null, faseObra:'', volumenObra:'', necesidadDetectada:'', comentarios:f('ct_nota'),
+      creadoEn:serverTimestamp(), actualizadoEn:serverTimestamp()
+    }));
+    if(accion && accion!=='Visitar' && f('ct_fecha')) await crearTarea({clientePartner:contactoCliente.partner, clienteRazonSocial:contactoCliente.razonSocial, tipo:accion, fecha:f('ct_fecha'), origen:'contacto', origenId:ref.id});
+    showStatus('Guardado.', 'ok');
+    if(accion==='Visitar'){ clientePlanificar={partner:contactoCliente.partner, razonSocial:contactoCliente.razonSocial}; esVisitaImprevista=false; mostrarAvisoPlanCliente(); irA('fecha'); }
+    else volver();
+  }catch(e){ console.error(e); showStatus('No se pudo guardar: '+e.message, 'err'); }
+  finally{ btn.disabled=false; btn.textContent='Guardar'; }
+};
 
 /* ---------- historial de cliente ---------- */
 window.verHistorialCliente = async function verHistorialCliente(){
