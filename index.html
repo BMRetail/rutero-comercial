@@ -298,11 +298,11 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
         <span id="inicioHerramientasChevron" style="margin-left:auto;font-size:11px">▸</span>
       </div>
       <div id="inicioHerramientasBody">
-        <button class="menu-btn" onclick="irA('fecha')"><span class="ico">📅</span> Planificador Semanal</button>
-        <button class="menu-btn" onclick="irA('rutero')"><span class="ico">📋</span> Rutero — Registro de Visitas</button>
+        <button class="menu-btn" onclick="planificarSinCliente()"><span class="ico">📅</span> Planificador Semanal</button>
         <button class="menu-btn" onclick="irA('agenda')"><span class="ico">🗓️</span> Ver mi Agenda</button>
-        <button class="menu-btn" onclick="irA('clientes')"><span class="ico">📇</span> Clientes</button>
-        <button class="menu-btn" onclick="abrirMiCartera()"><span class="ico">📋</span> Mi cartera</button>
+        <button class="menu-btn" onclick="irA('rutero')"><span class="ico">📋</span> Rutero — Registro de Visitas</button>
+        <button class="menu-btn" onclick="abrirMiCartera()"><span class="ico">💼</span> Mi cartera</button>
+        <button class="menu-btn" onclick="irA('clientes')"><span class="ico">👥</span> Clientes</button>
       </div>
     </div>
   </div>
@@ -310,6 +310,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
   <!-- ===================== SELECCIÓN FECHA (planificador) ===================== -->
   <div class="screen" id="screen-fecha">
     <div class="section">
+      <div id="planClienteAviso" style="display:none;background:var(--bm-blue-light);border-left:3px solid var(--bm-red);border-radius:6px;padding:8px 10px;margin-bottom:10px;font-size:13px;color:var(--bm-blue)"></div>
       <div class="section-title">¿Qué día quieres planificar?</div>
       <div class="field">
         <label class="required">Fecha</label>
@@ -1472,6 +1473,7 @@ function limpiarNuevaVisita(){
 function abrirNuevaVisita(){
   limpiarNuevaVisita();
   irA('nueva-visita');
+  if(clientePlanificar && !esVisitaImprevista){ seleccionarCliente(clientePlanificar); clientePlanificar=null; mostrarAvisoPlanCliente(); }
   document.getElementById('nv_prioridad_field').style.display = esVisitaImprevista ? 'none' : '';
   document.getElementById('btnGuardarVisita').textContent = esVisitaImprevista ? 'Continuar' : 'Guardar visita';
 }
@@ -2913,6 +2915,25 @@ function contarAlertasCartera(datos){
 }
 window.cambiarPeriodoCartera = function cambiarPeriodoCartera(p){ carteraPeriodo=p; pintarCartera(); }
 window.filtrarCartera = function filtrarCartera(idAlerta){ carteraFiltro = carteraFiltro===idAlerta ? null : idAlerta; pintarCartera(); }
+/* ---------- planificar desde Mi cartera (31/10/2026, petición de los comerciales) ---------- */
+let clientePlanificar=null;   // {partner, razonSocial} elegido en la cartera, se rellena solo al crear la visita
+function mostrarAvisoPlanCliente(){
+  const el=document.getElementById('planClienteAviso');
+  if(!clientePlanificar){ el.style.display='none'; el.innerHTML=''; return; }
+  el.innerHTML='📅 Planificando visita a: <b>'+escHtml(clientePlanificar.razonSocial)+'</b> <span style="float:right;cursor:pointer;font-weight:700" onclick="planificarSinCliente()" title="Quitar">✕</span>';
+  el.style.display='block';
+}
+window.planificarDesdeCartera = function planificarDesdeCartera(partner){
+  const x=carteraDatos && carteraDatos.clientes.find(function(y){ return y.partner===partner; });
+  clientePlanificar={partner:partner, razonSocial:x ? (x.c.razonSocial||partner) : partner};
+  esVisitaImprevista=false;
+  mostrarAvisoPlanCliente();
+  irA('fecha');
+};
+window.planificarSinCliente = function planificarSinCliente(){
+  clientePlanificar=null; mostrarAvisoPlanCliente();
+  irA('fecha');
+};
 window.abrirFichaDesdeCartera = function abrirFichaDesdeCartera(partner){
   const x=carteraDatos.clientes.find(function(y){ return y.partner===partner; });
   document.getElementById('nv_partner').value=partner;
@@ -2968,7 +2989,9 @@ window.pintarCartera = function pintarCartera(){
     return '<div onclick="abrirFichaDesdeCartera(\''+escHtml(x.partner)+'\')" style="cursor:pointer;padding:10px 16px;border-bottom:1px solid var(--bm-blue-light)">'+
       '<div style="display:flex;justify-content:space-between;gap:10px"><div style="min-width:0"><div style="font-size:14px;font-weight:700;color:#1a1a2e">'+escHtml(x.c.razonSocial||x.partner)+'</div>'+
       '<div style="font-size:11px;color:#667;margin-top:1px">'+visita+compra+'</div></div>'+
-      '<div style="text-align:right;white-space:nowrap">'+cifra+'</div></div>'+badges+'</div>';
+      '<div style="text-align:right;white-space:nowrap">'+cifra+'</div></div>'+badges+
+      '<div style="margin-top:6px"><button type="button" onclick="event.stopPropagation();planificarDesdeCartera(\''+escHtml(x.partner)+'\')" style="font-size:12px;font-weight:700;color:var(--bm-blue);background:#fff;border:1.5px solid var(--bm-blue-mid);border-radius:14px;padding:4px 12px;cursor:pointer">📅 Planificar visita</button></div>'+
+      '</div>';
   }).join('');
   pintarAtendidosAjenos(term);
 }
