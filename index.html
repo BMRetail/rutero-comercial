@@ -3515,7 +3515,7 @@ window.anadirComentario = async function anadirComentario(){
    de cada uno (primera vez, última, dispositivos) queda en accesos/{correo}. */
 const ADMINS=['rossy.cuenca@bigmat.biz','li.lin@bigmat.biz'];
 const PLT_ADMIN={'rossy.cuenca@bigmat.biz':'ROSSY'};
-const ROLES_TXT={comercial:'Comercial', supervision:'Supervisión', direccion:'Dirección', admin:'Administración'};
+const ROLES_TXT={comercial:'Comercial', supervision:'Supervisión', direccion:'Dirección', admin:'Administración', carga:'Carga a LN (transporte)'};
 let mensajeLogin='';
 function msgLogin(t, tipo){
   const el=document.getElementById('login_msg');
@@ -3565,6 +3565,14 @@ async function alEntrar(user){
   if(!p || p.activo!==true){
     mensajeLogin='Tu usuario no tiene acceso a esta aplicación. Contacta con Rossy Cuenca (rossy.cuenca@bigmat.biz).';
     await signOut(auth);
+    return;
+  }
+  // Rol «carga» (transporte/administración, 31/10/2026): su app es la bandeja de Pedidos de Venta, no el Rutero.
+  // No se cierra la sesión porque es la misma que la de Pedidos.
+  if(p.rol==='carga'){
+    document.body.innerHTML='<div style="font-family:Segoe UI,Arial,sans-serif;max-width:420px;margin:60px auto;padding:20px;text-align:center;color:#1a1a2e">'
+      +'<p style="font-size:16px;margin-bottom:14px">Tu usuario es para la <b>bandeja de carga</b> de Pedidos de Venta.</p>'
+      +'<a href="https://bmretail.github.io/pedidos-venta/prueba.html" style="display:inline-block;padding:12px 18px;background:#003880;color:#fff;border-radius:8px;text-decoration:none;font-weight:700">Ir a Pedidos de Venta</a></div>';
     return;
   }
   try{ await cargarComerciales(); }catch(err){ console.error(err); showStatus('No se pudieron cargar los Comerciales: '+err.message, 'err'); }
@@ -3673,7 +3681,7 @@ window.anadirUsuarios = async function anadirUsuarios(){
   const log=document.getElementById('usu_log'); log.textContent='';
   const enviar=document.getElementById('usu_enviar').checked;
   const lineas=document.getElementById('usu_nuevos').value.split('\n').map(function(l){ return l.trim(); }).filter(function(l){ return l && !l.startsWith('#'); });
-  const ROLES_ENTRADA={comercial:'comercial', supervision:'supervision', 'supervisión':'supervision', supervisor:'supervision', direccion:'direccion', 'dirección':'direccion', admin:'admin', administracion:'admin', 'administración':'admin'};
+  const ROLES_ENTRADA={comercial:'comercial', supervision:'supervision', 'supervisión':'supervision', supervisor:'supervision', direccion:'direccion', 'dirección':'direccion', admin:'admin', administracion:'admin', 'administración':'admin', carga:'carga'};
   const CATS=['F.VTA','TIENDA','COMANDO'];
   // la lista de comerciales del móvil se guarda un día: se relee para que un alta de hoy (p. ej. PLT nuevo) se reconozca (20/10/2026)
   try{ aplicarComerciales(await leerComerciales(true)); }catch(e){ console.error(e); }
