@@ -191,14 +191,15 @@ async function cargar(email, p){
   const cats=(p.rol==='supervision'&&Array.isArray(p.categorias)&&p.categorias.length)?p.categorias:null;
   const hoy=hoyLocal(), desde=new Date(); desde.setFullYear(desde.getFullYear()-1);
   const desdeIso=desde.toISOString().slice(0,10);
-  const [sc, sv]=await Promise.all([getDocs(collection(db,'comerciales')), getDocs(query(collection(db,'visitas'), where('fechaVisita','>=',desdeIso)))]);
+  const [sc, sv, st]=await Promise.all([getDocs(collection(db,'comerciales')), getDocs(query(collection(db,'visitas'), where('fechaVisita','>=',desdeIso))), getDocs(query(collection(db,'tareas'), where('estado','==','pendiente'))).catch(()=>null)]);
   const comerciales=[]; sc.forEach(d=>{ const x=d.data(); if(x.categoria) comerciales.push({id:d.id,nombre:x.nombre||d.id,categoria:x.categoria,region:(x.region||'').trim(),activo:x.activo!==false}); });
   const visibles=comerciales.filter(c=>!cats||cats.includes(c.categoria));
   const permitidos=new Set(visibles.map(c=>c.id));
   const visitas=[]; sv.forEach(d=>{ const v=d.data(); if(permitidos.has(v.comercialId)) visitas.push(v); });
+  const tareas=[]; if(st) st.forEach(d=>{ const t=d.data(); if(permitidos.has(t.comercialId)) tareas.push(t); });
   const carteras={}; let ventasHasta='';
   await Promise.all(visibles.map(async c=>{ const s=await getDoc(doc(db,'carteras',c.id)); if(s.exists()){ const x=s.data(); carteras[c.id]={clientes:x.clientes||[],agregados:x.agregados||{},dejanSeccion:x.dejanSeccion||{}}; if(x.ventasHasta) ventasHasta=x.ventasHasta; } }));
-  return {hoy, ventasHasta, comerciales: visibles, visitas, carteras, perfil:{cats, acc:p.rol==='admin'},
+  return {hoy, ventasHasta, comerciales: visibles, visitas, tareas, carteras, perfil:{cats, acc:p.rol==='admin'},
     leer360: async partner=>{ const s=await getDoc(doc(db,'clientesVentas',partner)); return (s.exists()&&s.data().v360)||{transporte:{},secciones:{}}; },
     leerAccesos: async()=>{ const [su,sa]=await Promise.all([getDocs(collection(db,'usuarios')),getDocs(collection(db,'accesos'))]); const usuarios={},accesos={}; su.forEach(d=>usuarios[d.id]=d.data()); sa.forEach(d=>accesos[d.id]=d.data()); return {usuarios,accesos}; }};
 }
@@ -346,6 +347,8 @@ function accionesVencidas(ids){
   const set=new Set(ids), porCli={}; let n=0;
   D.visitas.forEach(v=>{(porCli[v.clientePartner]=porCli[v.clientePartner]||[]).push(v.fechaVisita);});
   D.visitas.forEach(v=>{ if(set.has(v.comercialId)&&v.proximaAccion&&v.fechaProximaAccion&&v.fechaProximaAccion<HOY&&!(porCli[v.clientePartner]||[]).some(f=>f>v.fechaVisita)) n++; });
+  // desde la fase 2 (31/10/2026) las próximas acciones son tareas: cuentan las pendientes con fecha pasada
+  (D.tareas||[]).forEach(t=>{ if(set.has(t.comercialId)&&t.fecha&&t.fecha<HOY) n++; });
   return n;
 }
 function pintarResumen(){

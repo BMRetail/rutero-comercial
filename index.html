@@ -120,6 +120,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 .agenda-grid-cell.badge-Pospuesta{background:var(--bm-amber)}
 .agenda-grid-cell.badge-Cancelada{background:var(--bm-red)}
 .agenda-grid-cell.badge-Imprevista{background:#6a1fb0}
+.agenda-grid-cell.badge-NoEstaba{background:#E8A400;color:#2b2000;font-weight:700}  /* «No estaba»: realizada pero sin contacto (11/11/2026) */
 
 .agenda-mes{border-collapse:collapse;width:100%;table-layout:fixed}
 .agenda-mes td{text-align:center;padding:3px 2px}
@@ -797,6 +798,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
       <div id="agendaLeyenda" style="display:none;flex-wrap:wrap;gap:10px;margin-top:10px;font-size:10px;color:#667">
         <span><i style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--bm-blue-mid);margin-right:3px"></i>Planificada</span>
         <span><i style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--bm-green);margin-right:3px"></i>Realizada</span>
+        <span><i style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#E8A400;margin-right:3px"></i>No estaba</span>
         <span><i style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--bm-amber);margin-right:3px"></i>Pospuesta</span>
         <span><i style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--bm-red);margin-right:3px"></i>Cancelada</span>
         <span><i style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#6a1fb0;margin-right:3px"></i>Imprevista</span>
@@ -1976,7 +1978,7 @@ async function aplicarOrdenRuta(ordenSugerido, franjasOriginales){
     showStatus('Error al aplicar el orden: '+err.message, 'err');
   }
 }
-function renderizarMiniCalendarioMes(cont, visitas, inicio, fin, soloLectura){
+function renderizarMiniCalendarioMes(cont, visitas, inicio, fin, soloLectura, alTocarDia){
   const conteoPorDia={};
   visitas.forEach(function(v){ conteoPorDia[v.fechaVisita]=(conteoPorDia[v.fechaVisita]||0)+1; });
   const hoy=hoyLocal();
@@ -2007,6 +2009,11 @@ function renderizarMiniCalendarioMes(cont, visitas, inicio, fin, soloLectura){
   }
   tabla.innerHTML=filaCab+filas;
   cont.appendChild(tabla);
+  if(soloLectura && alTocarDia){
+    tabla.querySelectorAll('.agenda-mes-dia[data-fecha]').forEach(function(celda){ celda.onclick=function(){ alTocarDia(celda.getAttribute('data-fecha')); }; });
+    const h=document.createElement('div'); h.className='hint'; h.style.marginTop='6px';
+    h.textContent='Toca un día para ver esa semana.'; cont.appendChild(h);
+  }
   if(!soloLectura){
     tabla.querySelectorAll('.agenda-mes-dia[data-fecha]').forEach(function(celda){
       celda.onclick=function(){
@@ -2018,6 +2025,28 @@ function renderizarMiniCalendarioMes(cont, visitas, inicio, fin, soloLectura){
       };
     });
   }
+}
+// Resumen por semanas del mes (Supervisión, 11/11/2026)
+function resumenSemanasSupervision(visitas, inicio, fin){
+  const caja=document.createElement('div');
+  caja.style.marginTop='12px';
+  const semanas=[]; let l=lunesDeLaSemana(inicio);
+  while(l<=fin){ semanas.push(l); l=sumarDias(l,7); }
+  const filas=semanas.map(function(lu){
+    const vi=sumarDias(lu,6);
+    const vs=visitas.filter(function(v){ return v.fechaVisita>=lu && v.fechaVisita<=vi; });
+    const c=function(fn){ return vs.filter(fn).length; };
+    return {lu:lu, plan:c(function(v){ return v.estadoVisita==='Planificada'; }), real:c(function(v){ return v.estadoVisita==='Realizada' && v.resultadoVisita!=='No estaba'; }),
+      noE:c(function(v){ return v.estadoVisita==='Realizada' && v.resultadoVisita==='No estaba'; }), otras:c(function(v){ return v.estadoVisita==='Pospuesta'||v.estadoVisita==='Cancelada'; }),
+      ped:c(function(v){ return v.resultadoVisita==='Pedido cerrado'; })};
+  });
+  const th='style="padding:5px 4px;text-align:right;font-size:11px;color:var(--bm-gris)"', td='style="padding:6px 4px;text-align:right;border-top:1px solid var(--bm-blue-light)"';
+  caja.innerHTML='<div class="section-title" style="margin-bottom:6px">Resumen por semanas</div>'+
+    '<table style="width:100%;border-collapse:collapse;font-size:12.5px"><tr><th style="text-align:left;font-size:11px;color:var(--bm-gris)">Semana</th><th '+th+'>Pend.</th><th '+th+'>Realiz.</th><th '+th+'>No estaba</th><th '+th+'>Posp./canc.</th><th '+th+'>Pedidos</th></tr>'+
+    filas.map(function(r){ return '<tr data-l="'+r.lu+'" style="cursor:pointer"><td style="padding:6px 4px;border-top:1px solid var(--bm-blue-light);color:var(--bm-blue);font-weight:700">'+formatFechaCorta(r.lu)+'</td><td '+td+'>'+r.plan+'</td><td '+td+'>'+r.real+'</td><td '+td+(r.noE?' ><b style="color:#8a6200">'+r.noE+'</b>':'>0')+'</td><td '+td+'>'+r.otras+'</td><td '+td+'>'+r.ped+'</td></tr>'; }).join('')+'</table>'+
+    '<div class="hint">Toca una semana para ver su agenda.</div>';
+  caja.querySelectorAll('tr[data-l]').forEach(function(tr){ tr.onclick=function(){ supervisionAncla=tr.getAttribute('data-l'); supervisionPeriodo='semana'; cargarDetalleComercial(); }; });
+  return caja;
 }
 function renderizarCuadriculaSemana(cont, visitas, inicio, soloLectura){
   const nombresDias=['Lun','Mar','Mié','Jue','Vie'];
@@ -2043,7 +2072,7 @@ function renderizarCuadriculaSemana(cont, visitas, inicio, soloLectura){
     fechasSemana.forEach(function(f){
       const v=mapa[f] && mapa[f][franja];
       filasCuerpo += v
-        ? '<td><div class="agenda-grid-cell badge-'+v.estadoVisita+'" data-id="'+v.id+'">'+(v.clienteRazonSocial||'')+'</div></td>'
+        ? '<td><div class="agenda-grid-cell badge-'+(v.estadoVisita==='Realizada'&&v.resultadoVisita==='No estaba'?'NoEstaba':v.estadoVisita)+'" data-id="'+v.id+'">'+(v.clienteRazonSocial||'')+'</div></td>'
         : '<td><div class="agenda-grid-cell-vacia"></div></td>';
     });
     filasCuerpo+='</tr>';
@@ -2110,8 +2139,9 @@ window.cambiarPeriodoSupervision=function cambiarPeriodoSupervision(periodo){
   supervisionPeriodo=periodo;
   if(supervisionComercialDetalle) cargarDetalleComercial(); else cargarSupervision();
 }
-function rangoPeriodoSupervision(periodo){
-  const hoy=hoyLocal();
+let supervisionAncla=null, supervisionDesdeMes=false;   // fecha de referencia del detalle de un comercial (null = hoy) · 11/11/2026
+function rangoPeriodoSupervision(periodo, ancla){
+  const hoy=ancla||hoyLocal();
   const MESES=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
   if(periodo==='mes'){
     const inicio=primerDiaDelMes(hoy), fin=ultimoDiaDelMes(hoy);
@@ -2237,6 +2267,7 @@ function pintarListaSupervision(lista){
         '<div style="display:flex;gap:14px;margin-top:6px;font-size:12px;color:#667;flex-wrap:wrap">'+
           '<span>🔵 '+e.planificadas+' pendientes</span>'+
           '<span>🟢 '+e.realizadas+' realizadas</span>'+
+          (e.noEstaba?'<span style="color:#8a6200;font-weight:700">🟡 '+e.noEstaba+' no estaba</span>':'')+
           '<span>🟠 '+otras+' pospuestas/canceladas</span>'+
         '</div>' : '');
     card.onclick=function(){ supervisionComercialDetalle={id:e.id, nombre:e.nombre}; cargarDetalleComercial(); };
@@ -2247,7 +2278,7 @@ async function cargarDetalleComercial(){
   const cont=document.getElementById('supervisionContainer');
   cont.innerHTML='Cargando...';
   const {id, nombre}=supervisionComercialDetalle;
-  const {inicio, fin, label}=rangoPeriodoSupervision(supervisionPeriodo);
+  const {inicio, fin, label}=rangoPeriodoSupervision(supervisionPeriodo, supervisionAncla);
   document.getElementById('supervisionRangoLabel').textContent=nombre;
 
   let visitasSnap, clientesSnap;
@@ -2288,7 +2319,7 @@ async function cargarDetalleComercial(){
   const volver=document.createElement('div');
   volver.style.cssText='font-size:13px;font-weight:600;color:var(--bm-blue);margin-bottom:12px;cursor:pointer';
   volver.textContent='‹ Volver al equipo';
-  volver.onclick=function(){ supervisionComercialDetalle=null; cargarSupervision(); };
+  volver.onclick=function(){ supervisionComercialDetalle=null; supervisionAncla=null; cargarSupervision(); };
   cont.appendChild(volver);
 
   const selector=document.createElement('div');
@@ -2327,6 +2358,7 @@ async function cargarDetalleComercial(){
     '<div style="display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:#667;border-top:1px solid var(--bm-blue-light);padding-top:10px">'+
       '<span>🔵 '+pendientes+' pendientes</span>'+
       '<span>🟢 '+realizadas+' realizadas</span>'+
+      (noEstaba?'<span style="color:#8a6200;font-weight:700">🟡 '+noEstaba+' «no estaba»</span>':'')+
       '<span>🟠 '+pospuestas+' pospuestas</span>'+
       '<span>🔴 '+canceladas+' canceladas</span>'+
       '<span style="font-weight:700;color:#1a1a2e">'+total+' visitas en total</span>'+
@@ -2375,8 +2407,41 @@ async function cargarDetalleComercial(){
   const agendaCont=document.createElement('div');
   cont.appendChild(agendaCont);
 
+  // navegación: semana o mes anterior / siguiente (11/11/2026, petición de supervisores)
+  if(supervisionPeriodo!=='acum'){
+    const nav=document.createElement('div');
+    nav.style.cssText='display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 10px';
+    const esMes=supervisionPeriodo==='mes';
+    nav.innerHTML='<button type="button" class="agenda-flecha" title="Anterior">‹</button>'+
+      '<span style="font-size:13px;font-weight:700;color:var(--bm-blue);text-align:center;flex:1">'+escHtml(label)+'</span>'+
+      '<button type="button" class="agenda-flecha" title="Siguiente">›</button>';
+    const mover=function(n){
+      const base=supervisionAncla||hoyLocal();
+      if(esMes){ const [y,m]=base.split('-').map(Number); supervisionAncla=formatearFechaISO(new Date(y, m-1+n, 1)); }
+      else supervisionAncla=sumarDias(base, 7*n);
+      cargarDetalleComercial();
+    };
+    const bs=nav.querySelectorAll('button'); bs[0].onclick=function(){ mover(-1); }; bs[1].onclick=function(){ mover(1); };
+    agendaCont.appendChild(nav);
+    if(!esMes){
+      const mesBtn=document.createElement('button');
+      mesBtn.type='button'; mesBtn.className='secondary-btn';
+      mesBtn.style.cssText='margin:0 0 10px;border:1.5px solid var(--bm-blue-mid);color:var(--bm-blue);font-weight:700';
+      mesBtn.textContent='📅 Ver el mes completo';
+      mesBtn.onclick=function(){ supervisionPeriodo='mes'; supervisionDesdeMes=false; cargarDetalleComercial(); };
+      agendaCont.appendChild(mesBtn);
+    }
+    if(supervisionAncla){
+      const hoyBtn=document.createElement('div');
+      hoyBtn.style.cssText='text-align:center;margin:-4px 0 10px;font-size:12.5px;font-weight:700;color:var(--bm-blue-mid);cursor:pointer';
+      hoyBtn.textContent='Volver a '+(esMes?'este mes':'esta semana');
+      hoyBtn.onclick=function(){ supervisionAncla=null; cargarDetalleComercial(); };
+      agendaCont.appendChild(hoyBtn);
+    }
+  }
   if(supervisionPeriodo==='mes'){
-    renderizarMiniCalendarioMes(agendaCont, visitas, inicio, fin, true);
+    renderizarMiniCalendarioMes(agendaCont, visitas, inicio, fin, true, function(fecha){ supervisionAncla=fecha; supervisionPeriodo='semana'; supervisionDesdeMes=true; cargarDetalleComercial(); });
+    agendaCont.appendChild(resumenSemanasSupervision(visitas, inicio, fin));
   } else if(supervisionPeriodo==='acum'){
     const hint=document.createElement('div');
     hint.className='hint';
@@ -2387,7 +2452,7 @@ async function cargarDetalleComercial(){
       const fa=(a.fechaVisita||'')+(a.franjaHoraria||'99:99'), fb=(b.fechaVisita||'')+(b.franjaHoraria||'99:99');
       return fa<fb?-1:(fa>fb?1:0);
     });
-    if(!visitas.length){ agendaCont.innerHTML='<div class="empty-state">Sin visitas en este periodo.</div>'; }
+    if(!visitas.length){ const v0=document.createElement('div'); v0.className='empty-state'; v0.style.padding='24px 10px'; v0.textContent='Sin visitas esta semana.'; agendaCont.appendChild(v0); }
     else renderizarCuadriculaSemana(agendaCont, visitas, inicio, true);
   }
 }
