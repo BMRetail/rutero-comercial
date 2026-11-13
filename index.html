@@ -4049,7 +4049,7 @@ async function alEntrar(user){
   if(p.rol==='carga'){
     document.body.innerHTML='<div style="font-family:Segoe UI,Arial,sans-serif;max-width:420px;margin:60px auto;padding:20px;text-align:center;color:#1a1a2e">'
       +'<p style="font-size:16px;margin-bottom:14px">Tu usuario es para la <b>bandeja de carga</b> de Pedidos de Venta.</p>'
-      +'<a href="https://bmretail.github.io/pedidos-venta/prueba.html" style="display:inline-block;padding:12px 18px;background:#003880;color:#fff;border-radius:8px;text-decoration:none;font-weight:700">Ir a Pedidos de Venta</a></div>';
+      +'<a href="https://bmretail.github.io/pedidos-venta/" style="display:inline-block;padding:12px 18px;background:#003880;color:#fff;border-radius:8px;text-decoration:none;font-weight:700">Ir a Pedidos de Venta</a></div>';
     return;
   }
   try{ await cargarComerciales(); }catch(err){ console.error(err); showStatus('No se pudieron cargar los Comerciales: '+err.message, 'err'); }
