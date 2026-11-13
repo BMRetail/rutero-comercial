@@ -205,6 +205,16 @@ body.con-tabs .submit-bar{bottom:calc(64px + env(safe-area-inset-bottom))}
 .capa-f3 .caja{background:#fff;border-radius:14px;padding:18px;max-width:340px;width:100%}
 .capa-f3 h3{margin:0 0 6px;color:var(--bm-blue);font-size:17px}.capa-f3 p{font-size:14.5px;line-height:1.45;margin:6px 0 12px}
 .donde-f3{width:100%;border-collapse:collapse;font-size:14px}.donde-f3 td{padding:9px 4px;border-bottom:1px solid #eef1f6}
+/* parte 2: ficha con pestañas */
+#btnContactoFicha,#btnPlanFicha,#btnVerVentas,#btnVista360{display:none!important}
+.ftabs-f3{display:flex;border-bottom:2px solid var(--bm-blue-light);position:sticky;top:0;background:#fff;z-index:5}
+.ftabs-f3 button{flex:1;min-height:48px;border:0;background:none;font-weight:700;color:var(--bm-gris);cursor:pointer;font-size:14px;border-bottom:3px solid transparent;margin-bottom:-2px}
+.ftabs-f3 button.on{color:var(--bm-blue);border-bottom-color:var(--bm-red)}
+.barra-ficha-f3{display:flex;gap:6px;padding:10px 14px;border-top:1px solid var(--bm-blue-light);background:#fff;position:sticky;bottom:calc(62px + env(safe-area-inset-bottom));z-index:6}
+.barra-ficha-f3 button,.barra-ficha-f3 a{flex:1;min-height:48px;border:0;border-radius:10px;font-weight:700;font-size:13.5px;cursor:pointer;background:var(--bm-blue-light);color:var(--bm-blue);display:flex;align-items:center;justify-content:center;text-decoration:none;text-align:center}
+.barra-ficha-f3 .p{background:var(--bm-blue);color:#fff}
+.act-f3{display:flex;gap:10px;padding:9px 0;border-bottom:1px solid #eef1f6;font-size:14px;align-items:flex-start}.act-f3 .i{font-size:18px;width:24px;text-align:center}
+.act-f3 b{font-weight:700;color:#1a1a2e;display:block}.act-f3 small{color:var(--bm-gris);display:block;font-size:12.5px;margin-top:1px}
 </style>
 </head>
 <body>
@@ -718,6 +728,13 @@ body.con-tabs .submit-bar{bottom:calc(64px + env(safe-area-inset-bottom))}
         <button type="button" id="btnVista360" onclick="alternarVista360()" style="display:none;width:auto;padding:10px 14px;font-size:13px;font-weight:700;border:1.5px solid var(--bm-blue-mid);border-radius:14px;background:#fff;color:var(--bm-blue);cursor:pointer">🔎 Vista 360</button>
       </div>
     </div>
+    <div class="ftabs-f3" id="fichaTabsF3">
+      <button type="button" class="on" data-p="resumen" onclick="fichaTabF3('resumen')">Resumen</button>
+      <button type="button" data-p="ventas" onclick="fichaTabF3('ventas')">Ventas</button>
+      <button type="button" data-p="360" onclick="fichaTabF3('360')" style="display:none">Vista 360</button>
+      <button type="button" data-p="actividad" onclick="fichaTabF3('actividad')">Actividad</button>
+    </div>
+    <div id="fichaPestanaActividad" style="display:none"><div class="section"><div id="fichaActividad"></div></div></div>
     <div id="fichaPestanaVentas" style="display:none">
     <div class="section">
       <div class="radio-group" style="margin-bottom:12px">
@@ -784,6 +801,11 @@ body.con-tabs .submit-bar{bottom:calc(64px + env(safe-area-inset-bottom))}
         <button type="button" class="submit-btn" onclick="anadirComentario()">Guardar comentario</button>
       </div>
     </div>
+    </div>
+    <div class="barra-ficha-f3">
+      <button type="button" class="p" onclick="planificarDesdeFicha()">📅 Planificar visita</button>
+      <button type="button" onclick="registrarContactoDesdeFicha()">📝 Apuntar llamada</button>
+      <a href="https://bmretail.github.io/pedidos-venta/" target="_blank" rel="noopener">🛒 Pedido</a>
     </div>
   </div>
 
@@ -3588,6 +3610,7 @@ function cambiarPestanaFicha(pestana){
   document.getElementById('fichaPestanaResumen').style.display = pestana==='resumen' ? '' : 'none';
   document.getElementById('fichaPestanaVentas').style.display = pestana==='ventas' ? '' : 'none';
   document.getElementById('fichaPestana360').style.display = pestana==='360' ? '' : 'none';
+  const pa=document.getElementById('fichaPestanaActividad'); if(pa) pa.style.display = pestana==='actividad' ? '' : 'none';
   document.getElementById('btnVerVentas').textContent = pestana==='ventas' ? '‹ Volver a la ficha' : '📊 Ver ventas';
   document.getElementById('btnVista360').textContent = pestana==='360' ? '‹ Volver a la ficha' : '🔎 Vista 360';
 }
@@ -4347,6 +4370,7 @@ window.trasIrAF3=function trasIrAF3(pantalla){
     ['inicioHerramientasToggle','inicioHerramientasBody'].forEach(function(id){ const e=document.getElementById(id); if(e) e.style.display='none'; });
   }
   if(pantalla==='rutero') marcarProximaF3();
+  if(pantalla==='ficha') prepararFichaF3();
   pintarTabsF3();
 };
 // la primera visita de hoy sin cerrar se destaca como «Próxima visita»
@@ -4397,6 +4421,64 @@ window.verNovedadesF3=function verNovedadesF3(i){
 function novedadesPrimeraVezF3(){
   let visto=null; try{ visto=localStorage.getItem('rutero_f3_novedades'); }catch(e){}
   if(!visto) verNovedadesF3(0);
+}
+
+/* ---------- FASE 3 · PARTE 2: ficha del cliente con pestañas (13/11/2026) ----------
+   Resumen (lo de siempre) · Ventas · Vista 360 (si hay datos) · Actividad (visitas, llamadas y tareas en un hilo)
+   Barra fija abajo: Planificar visita · Apuntar llamada · Pedido */
+window.fichaTabF3=function fichaTabF3(p){
+  if(p==='360' && typeof pintarVista360==='function') pintarVista360();
+  if(p==='actividad') cargarActividadF3();
+  cambiarPestanaFicha(p);
+  document.querySelectorAll('#fichaTabsF3 button').forEach(function(b){ b.classList.toggle('on', b.dataset.p===p); });
+  window.scrollTo({top:0});
+};
+function prepararFichaF3(){
+  fichaTabF3('resumen');
+  const b360=document.querySelector('#fichaTabsF3 [data-p="360"]'); if(b360) b360.style.display='none';
+  let n=0; const t=setInterval(function(){   // la Vista 360 solo aparece si el cliente tiene esos datos
+    n++; const v=document.getElementById('btnVista360');
+    if(v && v.style.display!=='none'){ if(b360) b360.style.display=''; clearInterval(t); }
+    if(n>40) clearInterval(t);
+  }, 150);
+}
+async function cargarActividadF3(){
+  const cont=document.getElementById('fichaActividad'); const partner=fichaPartnerActual;
+  if(!cont || !partner) return;
+  cont.innerHTML='Cargando...';
+  const items=[];
+  try{
+    const [sv, st]=await Promise.all([
+      getDocs(query(collection(db,'visitas'), where('clientePartner','==',partner), orderBy('fechaVisita','desc'))),
+      getDocs(query(collection(db,'tareas'), where('clientePartner','==',partner)))
+    ]);
+    st.forEach(function(d){ const x=d.data(); if(x.estado==='pendiente') items.push({tarea:true, fecha:x.fecha||'', x:x}); });
+    sv.forEach(function(d){ items.push({tarea:false, fecha:d.data().fechaVisita||'', x:d.data()}); });
+  }catch(err){ console.error(err); cont.innerHTML='<div class="empty-state">No se pudo cargar la actividad: '+escHtml(err.message)+'</div>'; return; }
+  if(!items.length){ cont.innerHTML='<div class="empty-state">Todavía no hay actividad con este cliente.</div>'; return; }
+  const hoy=hoyLocal();
+  const fmt=function(s){ const p=(s||'').split('-'); return p.length===3 ? p[2]+'/'+p[1]+'/'+p[0].slice(2) : s; };
+  const ICO={Llamada:'📞',WhatsApp:'💬',Correo:'✉️'};
+  const tareas=items.filter(function(i){ return i.tarea; }).sort(function(a,b){ return a.fecha.localeCompare(b.fecha); });
+  const proximas=items.filter(function(i){ return !i.tarea && i.x.estadoVisita==='Planificada' && i.fecha>=hoy; }).sort(function(a,b){ return a.fecha.localeCompare(b.fecha); });
+  const resto=items.filter(function(i){ return !i.tarea && !(i.x.estadoVisita==='Planificada' && i.fecha>=hoy); });
+  const fila=function(ico, titulo, sub, color){ return '<div class="act-f3"><span class="i">'+ico+'</span><div><b'+(color?' style="color:'+color+'"':'')+'>'+titulo+'</b><small>'+sub+'</small></div></div>'; };
+  let h='';
+  if(tareas.length) h+='<div class="section-title" style="margin-bottom:4px">Pendiente</div>'+tareas.map(function(i){
+    const venc=i.fecha && i.fecha<hoy;
+    return fila('📄', escHtml('Tarea · '+(i.x.tipo||'')), (venc?'Vencida · ':'')+fmt(i.fecha)+(i.x.comercialNombre?' · '+escHtml(nombreLegible(i.x.comercialNombre)):''), venc?'var(--bm-red)':'');
+  }).join('');
+  if(proximas.length) h+=(tareas.length?'':'<div class="section-title" style="margin-bottom:4px">Pendiente</div>')+proximas.map(function(i){
+    return fila('🗓️', 'Visita planificada'+(i.x.franjaHoraria?' · '+escHtml(i.x.franjaHoraria):''), fmt(i.fecha)+(i.x.comercialNombre?' · '+escHtml(nombreLegible(i.x.comercialNombre)):''), 'var(--bm-blue)');
+  }).join('');
+  h+='<div class="section-title" style="margin:12px 0 4px">Historial</div>'+resto.slice(0,30).map(function(i){
+    const v=i.x, esContacto=v.origen==='contacto';
+    const ico=esContacto ? (ICO[v.tipoVisita]||'📞') : (v.estadoVisita==='Realizada'?'📋':v.estadoVisita==='Planificada'?'🗓️':'⏭');
+    const titulo=(esContacto?(v.tipoVisita||'Contacto'):'Visita · '+(v.estadoVisita||''))+(v.resultadoVisita?' · '+v.resultadoVisita:'');
+    const sub=fmt(v.fechaVisita)+(v.comercialNombre?' · '+nombreLegible(v.comercialNombre):'')+(v.comentarios?' · «'+String(v.comentarios).slice(0,90)+'»':'');
+    return fila(ico, escHtml(titulo), escHtml(sub));
+  }).join('')+(resto.length>30?'<div class="hint">Se muestran las 30 más recientes de '+resto.length+'.</div>':'');
+  cont.innerHTML=h;
 }
 
 </script>
