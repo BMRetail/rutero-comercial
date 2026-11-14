@@ -5024,7 +5024,7 @@ window.pedidoCabeceraF3=function pedidoCabeceraF3(){
 /* ---------- pedido a medias (borrador de la app de Pedidos) ---------- */
 function borradorPedidoF3(){
   try{ const b=JSON.parse(localStorage.getItem('pedidoBorrador_'+((comercialActual&&comercialActual.email)||''))||'null');
-       return (b && ((b.lineas||[]).length || b.partner) && Date.now()-b.t<7*86400000) ? b : null; }catch(e){ return null; }
+       return (b && (b.lineas||[]).length && Date.now()-b.t<7*86400000) ? b : null; }catch(e){ return null; }
 }
 function avisoBorradorHtmlF3(b){
   return '<div class="aviso-borr-f3">📝 Tienes un <b>pedido a medias</b>'+(b.razon?' de <b>'+escHtml(nombreLegible?b.razon:b.razon)+'</b>':'')+' ('+(b.lineas||[]).length+((b.lineas||[]).length===1?' línea':' líneas')+')'+
