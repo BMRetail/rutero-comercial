@@ -4672,10 +4672,16 @@ const PER360={Mes:'Mes',Trim:'Trimestre',Ytd:'Año',ultimos12:'12 meses'};
 let per360F3='Mes';
 function bloque360F3(k, sufijo){
   return '<div class="cifras-f3" id="b360_'+sufijo+'"><div class="section-title" style="margin:0 0 6px">Por secciones</div>'+
-    '<div class="seg-f3">'+Object.keys(PER360).filter(p=>p!=='ultimos12'||k.agregados['12m']).map(p=>'<button type="button" class="'+(p===per360F3?'on':'')+'" onclick="per360F3=\''+p+'\';document.getElementById(\'b360_'+sufijo+'\').outerHTML=bloque360F3(window._k360_'+sufijo+',\''+sufijo+'\')">'+PER360[p]+'</button>').join('')+'</div>'+
+    '<div class="seg-f3">'+Object.keys(PER360).filter(p=>p!=='ultimos12'||k.agregados['12m']).map(p=>'<button type="button" class="'+(p===per360F3?'on':'')+'" onclick="cambiarPer360F3(\''+p+'\',\''+sufijo+'\')">'+PER360[p]+'</button>').join('')+'</div>'+
     tabla360F3(k.agregados[per360F3==='ultimos12'?'12m':per360F3])+'</div>';
 }
 window.bloque360F3=bloque360F3;
+// 16/11/2026: el botón cambiaba una variable global distinta de la del módulo y la tabla no cambiaba de periodo
+window.cambiarPer360F3=function cambiarPer360F3(p, sufijo){
+  per360F3=p;
+  const el=document.getElementById('b360_'+sufijo), k=window['_k360_'+sufijo];
+  if(el && k) el.outerHTML=bloque360F3(k, sufijo);
+};
 function tabla360F3(a){
   if(!a || !a.secciones) return '<div class="hint">Sin datos de este periodo.</div>';
   const filas=Object.entries(a.secciones).map(([s,v])=>({s:s, a:Number(v[0])||0, b:Number(v[1])||0})).filter(x=>x.a||x.b).sort((x,y)=>y.b-x.b||y.a-x.a);
@@ -4687,6 +4693,7 @@ function tabla360F3(a){
 
 /* ---------- supervisor: pantalla Equipo ---------- */
 let equipoF3={cat:null, reg:null, per:'semana'};
+window.equipoF3=equipoF3;   // 16/11/2026: los botones de filtro (en el HTML) necesitan verlo
 let filasEquipoF3=[];
 const REG_F3={MADRID:'Madrid',BARCELONA:'Barcelona',CASTILLA_Y_LEON:'C. y León',ANDALUCIA:'Andalucía',TODAS:'Todas'};
 function modoListaF3(lista){
@@ -4695,6 +4702,7 @@ function modoListaF3(lista){
   secs.forEach(s=>s.style.display=lista?'none':'');
   const c=document.getElementById('cifrasEquipoF3'); if(c) c.style.display=lista?'':'none';
 }
+window.cargarCifrasEquipoF3=function(){ return cargarCifrasEquipoF3(); };
 async function cargarCifrasEquipoF3(){
   const cont=document.getElementById('cifrasEquipoF3'); if(!cont) return;
   if(!comercialActual || !comercialActual.esSupervisor){ cont.style.display='none'; return; }
